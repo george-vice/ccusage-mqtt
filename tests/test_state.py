@@ -43,7 +43,8 @@ def test_apply_block_writes_token_and_cost_fields():
     )
     s.apply_block(block)
     assert s.tokens_used == 12345
-    assert s.spend_so_far_usd == 0.987
+    # apply_block rounds spend to cents to kill ccusage's float noise.
+    assert s.spend_so_far_usd == 0.99
     assert s.block_elapsed_minutes == 90.0
 
 
