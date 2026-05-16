@@ -56,9 +56,17 @@ prompt        MQTT_USER        "MQTT username"    ""
 prompt_secret MQTT_PASS        "MQTT password"
 
 echo
-echo "HA device identity (for multi-instance setups, change these per instance):"
-prompt        MQTT_DEVICE_NAME "HA device name"   "Claude Code Usage"
-prompt        ACCOUNT_NAME     "Account label (optional, e.g. 'work' or 'personal')" ""
+echo "Per-instance identity (change these per instance for a multi-account setup):"
+prompt        MQTT_DEVICE_NAME        "HA device name"   "Claude Code Usage"
+prompt        ACCOUNT_NAME            "Account label (optional, e.g. 'work' or 'personal')" ""
+prompt        CLAUDE_CONFIG_HOST_PATH "Claude Code config dir on host" "${HOME}/.claude"
+
+if [[ ! -f "${CLAUDE_CONFIG_HOST_PATH}/.credentials.json" ]]; then
+    echo
+    echo "  WARNING: ${CLAUDE_CONFIG_HOST_PATH}/.credentials.json doesn't exist."
+    echo "  Log in first with:  CLAUDE_CONFIG_DIR=${CLAUDE_CONFIG_HOST_PATH} claude login"
+    echo "  (Continuing anyway — the container will exit with code 3 until you do.)"
+fi
 
 # When ACCOUNT_NAME is set, auto-suffix the MQTT topic and client ID so two
 # instances on the same broker don't collide. User can still override either.
@@ -94,14 +102,15 @@ umask 077  # ensure 0600 on create
     echo "MQTT_BASE_TOPIC=${MQTT_BASE_TOPIC}"
     echo "MQTT_DEVICE_NAME=${MQTT_DEVICE_NAME}"
     echo "ACCOUNT_NAME=${ACCOUNT_NAME}"
+    echo "CLAUDE_CONFIG_HOST_PATH=${CLAUDE_CONFIG_HOST_PATH}"
     echo
-    # Match container UID/GID to host so the bind-mounted ~/.claude is readable.
+    # Match container UID/GID to host so the bind-mounted Claude config is readable.
     echo "USER_UID=${USER_UID}"
     echo "USER_GID=${USER_GID}"
     # Everything else — copy lines from .env.example verbatim, skipping the
-    # ones we just wrote above and the header comment block.
+    # ones we just wrote above and the header comment blocks.
     echo
-    grep -vE '^(MQTT_HOST|MQTT_PORT|MQTT_USER|MQTT_PASS|MQTT_CLIENT_ID|MQTT_BASE_TOPIC|MQTT_DEVICE_NAME|ACCOUNT_NAME|USER_UID|USER_GID|# MQTT broker|# Friendly name|# Optional\.)' "$TEMPLATE"
+    grep -vE '^(MQTT_HOST|MQTT_PORT|MQTT_USER|MQTT_PASS|MQTT_CLIENT_ID|MQTT_BASE_TOPIC|MQTT_DEVICE_NAME|ACCOUNT_NAME|CLAUDE_CONFIG_HOST_PATH|USER_UID|USER_GID|# MQTT broker|# Friendly name|# Optional\.|# Path on the host)' "$TEMPLATE"
 } > "$ENV_FILE"
 
 # Make sure it ended up 0600 (umask above should have done it, belt-and-braces).

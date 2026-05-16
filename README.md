@@ -68,6 +68,44 @@ device with 14 entities under Settings → Devices & Services → MQTT.
 Re-run `./setup.sh` any time to reconfigure. Hand-editing `.env` works too:
 `cp .env.example .env && $EDITOR .env`.
 
+## Running multiple Claude accounts
+
+To track two Claude accounts (e.g. work + personal) from the same host, create
+a separate Claude Code config directory for each account, then run one
+`ccusage-mqtt` container per directory. Each appears as its own device in
+Home Assistant.
+
+```bash
+# 1. Log in to each account into its own config dir on the host
+CLAUDE_CONFIG_DIR=~/.claude-work     claude login
+CLAUDE_CONFIG_DIR=~/.claude-personal claude login
+
+# 2. Clone the repo once per instance
+git clone https://github.com/george-vice/ccusage-mqtt.git ~/code/ccusage-mqtt-work
+git clone https://github.com/george-vice/ccusage-mqtt.git ~/code/ccusage-mqtt-personal
+
+# 3. Run setup.sh in each, answering with distinct values
+cd ~/code/ccusage-mqtt-work
+./setup.sh
+#   HA device name:               Claude Code (Work)
+#   Account label:                work
+#   Claude Code config dir:       /home/you/.claude-work
+docker compose up -d --build
+
+cd ~/code/ccusage-mqtt-personal
+./setup.sh
+#   HA device name:               Claude Code (Personal)
+#   Account label:                personal
+#   Claude Code config dir:       /home/you/.claude-personal
+docker compose up -d --build
+```
+
+When `ACCOUNT_NAME` is set, `setup.sh` automatically suffixes
+`MQTT_BASE_TOPIC` and `MQTT_CLIENT_ID` with a slug of the account name so
+the two instances can't collide on the broker. The HA device names you give
+keep them visually distinct, and every MQTT state payload carries
+`"account": "<name>"` so external subscribers can tell them apart too.
+
 ## Configuration
 
 `./setup.sh` only asks for the four values you almost always need to set
