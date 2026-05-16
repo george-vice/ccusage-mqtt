@@ -36,7 +36,8 @@ def test_publish_discovery_sends_each_config_retained(mock_mqtt_cls):
     )
     client.publish_discovery(cfgs)
 
-    assert fake.publish.call_count == 14
+    # 14 telemetry sensors + 1 dedicated "Account" sensor
+    assert fake.publish.call_count == 15
     # Spot-check one call
     call0 = fake.publish.call_args_list[0]
     assert call0.kwargs.get("retain", call0.args[3] if len(call0.args) >= 4 else None) is True
@@ -92,8 +93,8 @@ def test_on_connect_publishes_online_and_rediscovers(mock_mqtt_cls):
     # we use Callback API v2 → on_connect(client, userdata, flags, reason_code, properties))
     client._on_connect(fake, None, {}, 0, None)
 
-    # Should have: 1 availability=online + 14 discovery publishes
-    assert fake.publish.call_count == 15
+    # Should have: 1 availability=online + 15 discovery publishes (14 + account)
+    assert fake.publish.call_count == 16
     topics = [c.args[0] for c in fake.publish.call_args_list]
     assert topics[0] == "claude_code_usage/availability"
     discovery_topics = topics[1:]

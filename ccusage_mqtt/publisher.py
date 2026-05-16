@@ -29,6 +29,7 @@ _SENSOR_SPECS: tuple[tuple[str, str, str | None, str | None, str | None, str, in
     ("tokens_per_hour",        "Tokens per hour",   "tokens/h", None,        "measurement",      "mdi:speedometer",           0,    None),
     ("spend_so_far_usd",       "Spend so far",      "USD",      "monetary",  "total_increasing", "mdi:currency-usd",          2,    None),
     ("spend_per_hour_usd",     "Spend per hour",    "USD/h",    None,        "measurement",      "mdi:cash-clock",            2,    None),
+    ("account",                "Account",           None,       None,        None,               "mdi:account-circle",        None, None),
 )
 
 
@@ -38,7 +39,7 @@ def build_discovery_configs(
     device_name: str,
     base_topic: str,
     discovery_prefix: str = "homeassistant",
-    include_account_attribute: bool = False,
+    include_account_attribute: bool = True,
 ) -> list[DiscoveryConfig]:
     device_block = {
         "identifiers": [device_id],

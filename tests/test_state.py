@@ -112,7 +112,7 @@ def test_recompute_derived_handles_missing_session_pct():
     assert s.block_elapsed_pct is None
 
 
-def test_to_mqtt_payloads_returns_all_14_sensors():
+def test_to_mqtt_payloads_returns_all_15_sensors():
     s = State()
     payloads = s.to_mqtt_payloads()
     expected_keys = {
@@ -122,35 +122,36 @@ def test_to_mqtt_payloads_returns_all_14_sensors():
         "time_to_limit_minutes", "block_elapsed_pct",
         "tokens_used", "tokens_per_hour",
         "spend_so_far_usd", "spend_per_hour_usd",
+        "account",  # dedicated sensor surfacing the account label in the HA card
     }
     assert set(payloads.keys()) == expected_keys
-    assert len(payloads) == 14
+    assert len(payloads) == 15
 
 
-def test_to_mqtt_payloads_wraps_values_in_json_envelope():
+def test_to_mqtt_payloads_wraps_values_in_json_envelope_with_default_account():
     s = State()
     s.session_pct = 42.0
     payloads = s.to_mqtt_payloads()
-    assert payloads["session_pct"] == {"value": 42.0}
-    assert payloads["mood"] == {"value": "idle"}
-    assert payloads["session_status"] == {"value": "unknown"}
-    assert payloads["tokens_used"] == {"value": None}
+    # account defaults to "default" so it's always visible to subscribers / HA
+    assert payloads["session_pct"] == {"value": 42.0, "account": "default"}
+    assert payloads["mood"] == {"value": "idle", "account": "default"}
+    assert payloads["session_status"] == {"value": "unknown", "account": "default"}
+    assert payloads["tokens_used"] == {"value": None, "account": "default"}
+    assert payloads["account"] == {"value": "default", "account": "default"}
 
 
-def test_to_mqtt_payloads_includes_account_when_provided():
+def test_to_mqtt_payloads_uses_provided_account():
     s = State()
     s.session_pct = 42.0
     payloads = s.to_mqtt_payloads(account="work")
     assert payloads["session_pct"] == {"value": 42.0, "account": "work"}
-    assert payloads["mood"] == {"value": "idle", "account": "work"}
-    # all 14 payloads should carry the account
-    assert all("account" in p and p["account"] == "work" for p in payloads.values())
+    assert payloads["account"] == {"value": "work", "account": "work"}
+    assert all(p.get("account") == "work" for p in payloads.values())
 
 
-def test_to_mqtt_payloads_omits_account_when_falsy():
+def test_to_mqtt_payloads_falsy_account_falls_back_to_default():
     s = State()
-    # Both None and empty string should produce the bare {"value": ...} shape.
     for account in (None, ""):
         payloads = s.to_mqtt_payloads(account=account)
-        assert payloads["session_pct"] == {"value": None}
-        assert "account" not in payloads["session_pct"]
+        assert payloads["account"]["value"] == "default"
+        assert payloads["session_pct"]["account"] == "default"

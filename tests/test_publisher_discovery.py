@@ -3,13 +3,16 @@ import json
 from ccusage_mqtt.publisher import DiscoveryConfig, build_discovery_configs
 
 
-def test_returns_14_configs():
+def test_returns_15_configs():
+    # 14 telemetry sensors + 1 dedicated "Account" sensor that surfaces the
+    # account label in the HA device card.
     cfgs = build_discovery_configs(
         device_id="claude_code_usage",
         device_name="Claude Code Usage",
         base_topic="claude_code_usage",
     )
-    assert len(cfgs) == 14
+    assert len(cfgs) == 15
+    assert any(c.sensor_id == "account" for c in cfgs)
 
 
 def test_each_config_has_required_ha_fields():
@@ -67,12 +70,13 @@ def test_discovery_topic_format():
     assert spct.topic == "homeassistant/sensor/claude_code_usage/session_pct/config"
 
 
-def test_include_account_attribute_adds_json_attributes_topic():
+def test_account_attribute_present_by_default():
+    """Account is now always emitted (defaults to 'default'), so HA always
+    gets the json_attributes wiring without an opt-in flag."""
     cfgs = build_discovery_configs(
         device_id="claude_code_usage",
         device_name="Claude Code Usage",
         base_topic="claude_code_usage",
-        include_account_attribute=True,
     )
     for cfg in cfgs:
         body = json.loads(cfg.payload)
@@ -80,16 +84,31 @@ def test_include_account_attribute_adds_json_attributes_topic():
         assert "account" in body["json_attributes_template"]
 
 
-def test_no_account_attribute_by_default():
+def test_can_suppress_account_attribute_when_explicitly_disabled():
+    cfgs = build_discovery_configs(
+        device_id="claude_code_usage",
+        device_name="Claude Code Usage",
+        base_topic="claude_code_usage",
+        include_account_attribute=False,
+    )
+    for cfg in cfgs:
+        body = json.loads(cfg.payload)
+        assert "json_attributes_topic" not in body
+
+
+def test_account_sensor_is_string_with_no_unit():
     cfgs = build_discovery_configs(
         device_id="claude_code_usage",
         device_name="Claude Code Usage",
         base_topic="claude_code_usage",
     )
-    for cfg in cfgs:
-        body = json.loads(cfg.payload)
-        assert "json_attributes_topic" not in body
-        assert "json_attributes_template" not in body
+    account = next(c for c in cfgs if c.sensor_id == "account")
+    body = json.loads(account.payload)
+    assert body["name"] == "Account"
+    assert "unit_of_measurement" not in body
+    assert "device_class" not in body
+    assert "state_class" not in body
+    assert "suggested_display_precision" not in body
 
 
 def test_device_name_flows_into_discovery():

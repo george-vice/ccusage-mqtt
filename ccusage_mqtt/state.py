@@ -123,9 +123,14 @@ class State:
             self.spend_per_hour_usd = None
 
     def to_mqtt_payloads(self, *, account: str | None = None) -> dict[str, dict]:
-        if account:
-            return {
-                name: {"value": getattr(self, name), "account": account}
-                for name in SENSOR_FIELDS
-            }
-        return {name: {"value": getattr(self, name)} for name in SENSOR_FIELDS}
+        # Account always appears so single-instance users can see / filter on it
+        # without having to opt in. "default" is a clear nudge to customize.
+        acct = account or "default"
+        payloads: dict[str, dict] = {
+            name: {"value": getattr(self, name), "account": acct}
+            for name in SENSOR_FIELDS
+        }
+        # Dedicated `account` sensor — surfaces the label in the HA device card
+        # itself rather than only as an attribute on each metric sensor.
+        payloads["account"] = {"value": acct, "account": acct}
+        return payloads

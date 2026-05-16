@@ -166,7 +166,9 @@ def main(argv: list[str] | None = None) -> int:
         device_name=cfg.mqtt_device_name,
         base_topic=cfg.mqtt_base_topic,
         discovery_prefix=cfg.mqtt_discovery_prefix,
-        include_account_attribute=bool(cfg.account_name),
+        # Account is now always emitted (defaulting to "default"), so HA
+        # always gets the json_attributes_topic wiring.
+        include_account_attribute=True,
     )
 
     mqtt_client = MqttClient(

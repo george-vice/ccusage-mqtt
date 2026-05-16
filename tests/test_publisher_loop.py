@@ -71,10 +71,12 @@ def test_tick_publishes_state_after_pollers():
     mqtt.publish_state.assert_called_once()
     args = mqtt.publish_state.call_args
     payloads = args.kwargs["payloads"]
-    assert payloads["session_pct"] == {"value": 30.0}
-    assert payloads["session_status"] == {"value": "allowed"}
-    assert payloads["mood"] == {"value": "idle"}  # warm-up — only 1 sample
-    assert payloads["burn_rate_pct_per_min"] == {"value": None}
+    # Every payload now carries "account" (defaults to "default" when unset);
+    # check only the "value" half so this test stays focused on loop behavior.
+    assert payloads["session_pct"]["value"] == 30.0
+    assert payloads["session_status"]["value"] == "allowed"
+    assert payloads["mood"]["value"] == "idle"  # warm-up — only 1 sample
+    assert payloads["burn_rate_pct_per_min"]["value"] is None
 
 
 def test_burn_rate_warms_up_after_window():
@@ -92,8 +94,8 @@ def test_burn_rate_warms_up_after_window():
         loop.tick(now_monotonic=i * 60.0)
 
     final = mqtt.publish_state.call_args.kwargs["payloads"]
-    assert final["burn_rate_pct_per_min"] == {"value": pytest.approx(1.0)}
-    assert final["mood"] == {"value": "heavy"}
+    assert final["burn_rate_pct_per_min"]["value"] == pytest.approx(1.0)
+    assert final["mood"]["value"] == "heavy"
 
 
 def test_session_reset_flushes_ring():
@@ -123,7 +125,7 @@ def test_header_failure_keeps_loop_running():
     loop.tick(now_monotonic=60.0)
     loop.tick(now_monotonic=120.0)
     final = mqtt.publish_state.call_args.kwargs["payloads"]
-    assert final["session_status"] == {"value": "unknown"}
+    assert final["session_status"]["value"] == "unknown"
 
 
 def test_ccusage_failure_keeps_loop_running():
@@ -136,8 +138,8 @@ def test_ccusage_failure_keeps_loop_running():
     loop, mqtt = make_loop(header_poll=header, ccusage_poll=ccu)
     loop.tick(now_monotonic=0.0)
     final = mqtt.publish_state.call_args.kwargs["payloads"]
-    assert final["session_pct"] == {"value": 30.0}  # header still flows
-    assert final["tokens_used"] == {"value": None}   # ccusage missing
+    assert final["session_pct"]["value"] == 30.0  # header still flows
+    assert final["tokens_used"]["value"] is None  # ccusage missing
 
 
 def test_rate_limited_backs_off_header_poll():
@@ -160,5 +162,5 @@ def test_rate_limited_backs_off_header_poll():
 
     # State should still carry the snapshot from the 429 response.
     final = mqtt.publish_state.call_args.kwargs["payloads"]
-    assert final["session_status"] == {"value": "limited"}
-    assert final["session_pct"] == {"value": 99.0}
+    assert final["session_status"]["value"] == "limited"
+    assert final["session_pct"]["value"] == 99.0
