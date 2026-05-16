@@ -50,7 +50,7 @@ Clawdmeter daemon (`Clawdmeter/daemon/claude_usage_daemon.py:40-50`).
 
 ## 3. Architecture
 
-Single Python container running on the OpenClaw host. Long-running
+Single Python container running on the same host as your Claude Code install. Long-running
 publisher with two pollers feeding a shared in-memory `State` and an MQTT
 client.
 
@@ -126,7 +126,7 @@ while not shutdown:
 
 - `identifiers`: `["claude_code_usage"]`
 - `name`: `"Claude Code Usage"`
-- `manufacturer`: `"openclaw"`
+- `manufacturer`: `"ccusage-mqtt"`
 - `model`: `"ccusage-mqtt"`
 
 | sensor_id | Unit | `device_class` | `state_class` | Icon (MDI) | Source | Computation |

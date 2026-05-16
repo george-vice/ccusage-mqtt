@@ -6,7 +6,7 @@
 
 **Architecture:** Single-threaded Python event loop with two pollers (Anthropic ratelimit headers every 60s, `ccusage` CLI every 30s) feeding a shared `State`. State is serialized to MQTT JSON payloads and published with retain. Mood/burn-rate are derived from a ring buffer that ports `Clawdmeter/firmware/src/usage_rate.cpp` line-for-line so calibration matches.
 
-**Tech Stack:** Python 3.12, `paho-mqtt` 2.x, `requests` 2.31+, pytest + `responses` (HTTP mocking) + `pytest-mock`. Container base `node:22-alpine` + Python 3 + `ccusage` (pinned npm version). MQTT broker: existing mosquitto (`192.168.50.215`) shared with openclaw's `health_monitor.py`.
+**Tech Stack:** Python 3.12, `paho-mqtt` 2.x, `requests` 2.31+, pytest + `responses` (HTTP mocking) + `pytest-mock`. Container base `node:22-alpine` + Python 3 + `ccusage` (pinned npm version). MQTT broker: any reachable MQTT broker (the Mosquitto add-on on Home Assistant is the typical choice).
 
 **Repo:** `~/code/ccusage-mqtt/` (already exists with spec + .gitignore committed at `5b88851`)
 
@@ -17,7 +17,7 @@
 ## Conventions used across all tasks
 
 - All file paths are relative to `~/code/ccusage-mqtt/`.
-- All `python` invocations assume an activated venv created with `python3 -m venv .venv` (Task 1 sets this up). On the OpenClaw host, use `python3 -m pip install --break-system-packages` only inside the container — never on the host.
+- All `python` invocations assume an activated venv created with `python3 -m venv .venv` (Task 1 sets this up). If `python3 -m venv` is unavailable on the build host, fall back to `python3 -m pip install --user --break-system-packages` for dev deps; never `--break-system-packages` without `--user` outside the container.
 - All commits are made on the default branch `main`. (Single-developer personal repo per spec §1.)
 - Test layout: `tests/test_<module>.py` for each module.
 - Tests run with `python -m pytest tests/ -v`.
@@ -66,8 +66,8 @@ include = ["ccusage_mqtt*"]
 - [ ] **Step 2: Write `.env.example`**
 
 ```bash
-# MQTT broker (same one health_monitor.py uses)
-MQTT_HOST=192.168.50.215
+# MQTT broker — typically your Home Assistant host running the Mosquitto add-on
+MQTT_HOST=homeassistant.local
 MQTT_PORT=1883
 MQTT_USER=
 MQTT_PASS=
@@ -1749,7 +1749,7 @@ def build_discovery_configs(
     device_block = {
         "identifiers": [device_id],
         "name": device_name,
-        "manufacturer": "openclaw",
+        "manufacturer": "ccusage-mqtt",
         "model": "ccusage-mqtt",
     }
     configs: list[DiscoveryConfig] = []
@@ -2716,7 +2716,7 @@ This task brings the container up against the real broker and verifies HA shows 
 ```bash
 cp .env.example .env
 chmod 600 .env
-# Fill in MQTT_HOST, MQTT_USER, MQTT_PASS (same as openclaw's health_monitor).
+# Fill in MQTT_HOST, MQTT_USER, MQTT_PASS for your broker.
 # Fill in ANTHROPIC_API_KEY (use the same key Claude Code uses on this host).
 $EDITOR .env
 ```
@@ -2729,8 +2729,8 @@ docker compose logs -f --tail=50
 ```
 
 Expected log lines (first 60 seconds):
-- `starting ccusage-mqtt (host=192.168.50.215 port=1883)`
-- `mqtt connected to 192.168.50.215:1883`
+- `starting ccusage-mqtt (host=<your-broker> port=1883)`
+- `mqtt connected to <your-broker>:1883`
 - (after first header poll) state updates with session_pct values.
 
 - [ ] **Step 3: Verify HA discovered the device**

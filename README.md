@@ -119,4 +119,4 @@ survive broker restarts.
 
 ## License
 
-TBD before going public.
+MIT — see [LICENSE](LICENSE).
