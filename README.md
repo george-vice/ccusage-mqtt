@@ -8,8 +8,13 @@ See `docs/superpowers/specs/2026-05-16-ccusage-mqtt-design.md` for the full desi
 
 ## Quick start
 
-    cp .env.example .env && $EDITOR .env
+    ./setup.sh                  # interactive: asks for MQTT broker host/port/user/pass
     docker compose up -d --build
     docker compose logs -f
 
 Home Assistant discovers the `Claude Code Usage` device with 14 sensors within ~60s.
+
+Auth is via the Claude Code OAuth token in `~/.claude/.credentials.json` — no API
+key needed. Re-run `./setup.sh` any time to reconfigure the broker.
+
+(Prefer to edit by hand? `cp .env.example .env && $EDITOR .env` works too.)
