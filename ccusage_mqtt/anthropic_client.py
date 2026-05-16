@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import json as _json
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Literal, Mapping
+
+import requests
 
 Status = Literal["allowed", "limited", "unknown"]
 
@@ -70,3 +73,62 @@ def parse_ratelimit_headers(
         weekly_reset_minutes=_parse_reset_minutes(headers, "anthropic-ratelimit-unified-7d-reset", now=now),
         weekly_status=_parse_status(headers, "anthropic-ratelimit-unified-7d-status"),
     )
+
+
+class AnthropicProbeError(Exception):
+    """Recoverable error — caller should keep going."""
+
+
+class AnthropicAuthError(AnthropicProbeError):
+    """Fatal — bad credentials. Caller should exit non-zero."""
+
+
+class AnthropicRateLimited(AnthropicProbeError):
+    """The probe itself was 429'd. Headers may still be present and useful."""
+    def __init__(self, snapshot: RateLimitSnapshot) -> None:
+        super().__init__("rate limited")
+        self.snapshot = snapshot
+
+
+def probe(
+    *,
+    api_key: str,
+    api_base: str,
+    model: str,
+    timeout_sec: float,
+    now: datetime | None = None,
+) -> RateLimitSnapshot:
+    """POST /v1/messages with the smallest valid body; return parsed headers.
+
+    Raises:
+        AnthropicAuthError: 401 or 403 — credentials are wrong, fatal.
+        AnthropicRateLimited: 429 — back off and keep going.
+        AnthropicProbeError: any other non-2xx, or network failure.
+    """
+    url = api_base.rstrip("/") + "/v1/messages"
+    body = {
+        "model": model,
+        "max_tokens": 1,
+        "messages": [{"role": "user", "content": "."}],
+    }
+    request_headers = {
+        "x-api-key": api_key,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+    }
+    try:
+        resp = requests.post(url, headers=request_headers, json=body, timeout=timeout_sec)
+    except requests.RequestException as e:
+        raise AnthropicProbeError(f"network error: {e}") from e
+
+    if resp.status_code in (401, 403):
+        raise AnthropicAuthError(f"{resp.status_code} from {url}: {resp.text[:200]}")
+
+    if resp.status_code == 429:
+        snap = parse_ratelimit_headers(resp.headers, now=now)
+        raise AnthropicRateLimited(snap)
+
+    if not resp.ok:
+        raise AnthropicProbeError(f"{resp.status_code} from {url}: {resp.text[:200]}")
+
+    return parse_ratelimit_headers(resp.headers, now=now)
