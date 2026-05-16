@@ -37,6 +37,17 @@ mis-calibrated the mood thresholds. The final design uses the Anthropic
 headers for canonical signals and `ccusage` for token/$ detail Anthropic
 doesn't expose.
 
+**Auth model:** the probe request uses the same Claude Code OAuth token the
+Clawdmeter daemon reads from `~/.claude/.credentials.json`
+(`claudeAiOauth.accessToken`). Using a developer/console API key would not
+work: a console key has its own quota separate from Claude Pro/Max, so the
+response headers would report dev-API usage, not Claude Code usage. The
+publisher re-reads the credentials file on every poll so token refreshes
+performed by Claude Code itself propagate automatically. Probe requests sent
+with the OAuth token also require `anthropic-beta: oauth-2025-04-20` and a
+`User-Agent: claude-code/<version>` header; both are mirrored from the
+Clawdmeter daemon (`Clawdmeter/daemon/claude_usage_daemon.py:40-50`).
+
 ## 3. Architecture
 
 Single Python container running on the OpenClaw host. Long-running
@@ -89,8 +100,13 @@ while not shutdown:
 
 **Internal modules** (Python package `ccusage_mqtt`):
 
-- `anthropic_client.py` — issues the probe request, parses the
-  `anthropic-ratelimit-unified-*` response headers, returns a typed
+- `credentials.py` — reads `claudeAiOauth.accessToken` (and `expiresAt`) from
+  Claude Code's `.credentials.json`; raises typed errors on missing /
+  malformed files. Read per-poll so token rotation propagates.
+- `anthropic_client.py` — issues the probe request (OAuth bearer +
+  `anthropic-beta: oauth-2025-04-20` + `User-Agent: claude-code/<v>`),
+  parses the `anthropic-ratelimit-unified-*` response headers (reset values
+  are Unix epoch seconds in a string, not ISO 8601), returns a typed
   `RateLimitSnapshot`.
 - `ccusage.py` — `subprocess.run(["npx", "ccusage", "blocks", "--json", "--offline"])`,
   parses the active block, returns a typed `BlockSnapshot`.
@@ -170,18 +186,30 @@ while not shutdown:
 compared to the latest ring entry, flush the ring (port of
 `usage_rate.cpp:47-49`). Cleanly handles the Anthropic 5h window roll-over.
 
-**Probe request.** `POST /v1/messages` with `model: claude-haiku-4-5-20251001`,
-`max_tokens: 1`, body `[{"role":"user","content":"."}]`. <1 input token per
-call. ~1440 calls/day = ~$0.01–0.02/month at Haiku pricing. Future
-optimization: `POST /v1/messages/count_tokens` if it returns the same
-ratelimit headers without billing.
+**Probe request.** `POST /v1/messages` with:
+
+- `Authorization: Bearer <claudeAiOauth.accessToken from ~/.claude/.credentials.json>`
+- `anthropic-version: 2023-06-01`
+- `anthropic-beta: oauth-2025-04-20`  (required for OAuth-authed requests)
+- `User-Agent: claude-code/<version>`
+- body: `{"model": "claude-haiku-4-5-20251001", "max_tokens": 1, "messages": [{"role":"user","content":"hi"}]}`
+
+<1 input token per call. ~1440 calls/day. Charged against the user's Claude
+Pro/Max 5h quota (the same one we're measuring) — under typical Claude Code
+usage this is a sub-1% overhead on the budget. Verified against
+`Clawdmeter/daemon/claude_usage_daemon.py:40-50`.
+
+**Reset header format.** `anthropic-ratelimit-unified-{5h,7d}-reset` come back
+as **Unix epoch seconds in a string** (e.g. `"1747396800.5"`), not ISO 8601.
+The parser uses `float()` not `datetime.fromisoformat`.
 
 ## 6. Error handling
 
 | Failure | Severity | Behavior |
 |---|---|---|
 | Anthropic API timeout/network error | recoverable | Skip cycle; retained values stand. After 3 consecutive failures, publish `session_status = "unknown"` and `weekly_status = "unknown"`. |
-| Anthropic API 401/403 | fatal | Log auth fingerprint + endpoint, exit non-zero. `docker compose logs` surfaces the issue; restart loop keeps trying. |
+| Anthropic API 401/403 | fatal | Log endpoint + truncated response body, exit non-zero (code 2). Usually means the OAuth token expired and Claude Code hasn't run to refresh it. `docker compose logs` surfaces the issue. |
+| `.credentials.json` missing / malformed | fatal | Log path + reason, exit non-zero (code 3). User needs to run Claude Code on the host to (re)create the file. |
 | Anthropic API 429 | informational | Back off header poll to 5 min until next 200. The 429 *is* the signal: `session_status` is likely `"limited"`. |
 | `ccusage` exits non-zero or emits invalid JSON | recoverable | Log warning. Token/$ sensors hold last values. If no active block was ever observed, those sensors stay `null`. |
 | MQTT broker disconnect | automatic | `paho-mqtt`'s reconnect logic handles it. LWT fires `offline`. On reconnect, re-publish discovery configs + current state. |
@@ -201,7 +229,7 @@ checked in with placeholders.
 | `MQTT_CLIENT_ID` | `ccusage-mqtt` | Stable client ID |
 | `MQTT_DISCOVERY_PREFIX` | `homeassistant` | HA auto-discovery prefix |
 | `MQTT_BASE_TOPIC` | `claude_code_usage` | Root topic |
-| `ANTHROPIC_API_KEY` | *required* | For the probe request |
+| `CLAUDE_CREDENTIALS_PATH` | `/data/claude-projects/.credentials.json` | Path inside container to Claude Code's OAuth credentials |
 | `ANTHROPIC_API_BASE` | `https://api.anthropic.com` | Test override |
 | `PROBE_MODEL` | `claude-haiku-4-5-20251001` | Cheapest model for probe |
 | `CCUSAGE_PROJECTS_DIR` | `/data/claude-projects` | JSONL mount path inside container |
@@ -226,6 +254,7 @@ ccusage-mqtt/
 ├── ccusage_mqtt/
 │   ├── __init__.py
 │   ├── __main__.py
+│   ├── credentials.py
 │   ├── anthropic_client.py
 │   ├── ccusage.py
 │   ├── usage_rate.py
@@ -234,6 +263,7 @@ ccusage-mqtt/
 ├── tests/
 │   ├── test_usage_rate.py
 │   ├── test_state.py
+│   ├── test_credentials.py
 │   ├── test_anthropic_parse.py
 │   └── test_ccusage_parse.py
 └── docs/
@@ -309,8 +339,10 @@ HA discovers the 14 sensors within ~60s of container start.
    `docker compose up -d` restores them with current retained values.
 5. A simulated session reset (utilization drops ≥5%) flushes the ring
    buffer; `mood` returns to `idle` until 4 min of fresh samples accumulate.
-6. Anthropic 401 → container exits non-zero; `docker logs` shows the auth
-   key fingerprint and the failing endpoint.
+6. Anthropic 401 → container exits with code 2; `docker logs` shows the
+   failing endpoint and a truncated response body (most likely cause is an
+   expired OAuth token — running Claude Code on the host refreshes it).
+   Missing/malformed `.credentials.json` → exit code 3 with a clear message.
 7. `ccusage` subprocess failure → token/$ sensors hold their last values;
    API-header sensors continue to update.
 8. Unit tests for `usage_rate.py` produce the same group classification as

@@ -12,7 +12,7 @@ def test_load_config_from_env_full():
         "MQTT_CLIENT_ID": "test-client",
         "MQTT_DISCOVERY_PREFIX": "homeassistant",
         "MQTT_BASE_TOPIC": "claude_code_usage",
-        "ANTHROPIC_API_KEY": "sk-ant-test",
+        "CLAUDE_CREDENTIALS_PATH": "/custom/creds.json",
         "ANTHROPIC_API_BASE": "https://api.anthropic.com",
         "PROBE_MODEL": "claude-haiku-4-5-20251001",
         "CCUSAGE_PROJECTS_DIR": "/data/claude-projects",
@@ -28,21 +28,18 @@ def test_load_config_from_env_full():
     assert cfg.mqtt_host == "10.0.0.1"
     assert cfg.mqtt_port == 8883
     assert cfg.mqtt_user == "u"
-    assert cfg.anthropic_api_key == "sk-ant-test"
+    assert cfg.claude_credentials_path == "/custom/creds.json"
     assert cfg.header_poll_sec == 60.0
     assert cfg.mood_active_below == 0.33
     assert cfg.log_level == "DEBUG"
 
 
 def test_load_config_uses_defaults():
-    env = {
-        "MQTT_HOST": "broker",
-        "ANTHROPIC_API_KEY": "sk-ant-test",
-    }
-    cfg = load_config_from_env(env)
+    cfg = load_config_from_env({"MQTT_HOST": "broker"})
     assert cfg.mqtt_port == 1883
     assert cfg.mqtt_discovery_prefix == "homeassistant"
     assert cfg.mqtt_base_topic == "claude_code_usage"
+    assert cfg.claude_credentials_path == "/data/claude-projects/.credentials.json"
     assert cfg.header_poll_sec == 60.0
     assert cfg.ccusage_poll_sec == 30.0
     assert cfg.burn_rate_window_sec == 240.0
@@ -52,9 +49,4 @@ def test_load_config_uses_defaults():
 
 def test_load_config_requires_mqtt_host():
     with pytest.raises(SystemExit, match="MQTT_HOST"):
-        load_config_from_env({"ANTHROPIC_API_KEY": "sk"})
-
-
-def test_load_config_requires_api_key():
-    with pytest.raises(SystemExit, match="ANTHROPIC_API_KEY"):
-        load_config_from_env({"MQTT_HOST": "broker"})
+        load_config_from_env({})

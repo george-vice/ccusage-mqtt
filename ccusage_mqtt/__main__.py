@@ -10,6 +10,11 @@ from typing import Mapping
 
 from ccusage_mqtt.anthropic_client import AnthropicAuthError, probe
 from ccusage_mqtt.ccusage import run as ccusage_run
+from ccusage_mqtt.credentials import (
+    CredentialsMalformed,
+    CredentialsMissing,
+    load_claude_credentials,
+)
 from ccusage_mqtt.publisher import (
     LoopConfig,
     MqttClient,
@@ -28,7 +33,7 @@ class AppConfig:
     mqtt_discovery_prefix: str
     mqtt_base_topic: str
 
-    anthropic_api_key: str
+    claude_credentials_path: str
     anthropic_api_base: str
     probe_model: str
 
@@ -60,7 +65,10 @@ def load_config_from_env(env: Mapping[str, str]) -> AppConfig:
         mqtt_client_id=env.get("MQTT_CLIENT_ID", "ccusage-mqtt"),
         mqtt_discovery_prefix=env.get("MQTT_DISCOVERY_PREFIX", "homeassistant"),
         mqtt_base_topic=env.get("MQTT_BASE_TOPIC", "claude_code_usage"),
-        anthropic_api_key=_required(env, "ANTHROPIC_API_KEY"),
+        claude_credentials_path=env.get(
+            "CLAUDE_CREDENTIALS_PATH",
+            "/data/claude-projects/.credentials.json",
+        ),
         anthropic_api_base=env.get("ANTHROPIC_API_BASE", "https://api.anthropic.com"),
         probe_model=env.get("PROBE_MODEL", "claude-haiku-4-5-20251001"),
         ccusage_projects_dir=env.get("CCUSAGE_PROJECTS_DIR", "/data/claude-projects"),
@@ -105,13 +113,13 @@ def main() -> int:
     )
     mqtt_client.set_discovery_configs(discovery)
     mqtt_client.connect_and_loop()
-    # Belt-and-suspenders: publish discovery now too (on_connect also does it
-    # asynchronously when the broker handshake completes).
     mqtt_client.publish_discovery(discovery)
 
     def poll_headers():
+        # Re-read each poll so Claude Code's background token refresh propagates.
+        creds = load_claude_credentials(cfg.claude_credentials_path)
         return probe(
-            api_key=cfg.anthropic_api_key,
+            access_token=creds.access_token,
             api_base=cfg.anthropic_api_base,
             model=cfg.probe_model,
             timeout_sec=10.0,
@@ -153,6 +161,12 @@ def main() -> int:
             except AnthropicAuthError as e:
                 log.error("anthropic auth error — exiting: %s", e)
                 return 2
+            except CredentialsMissing as e:
+                log.error("claude credentials missing — exiting: %s", e)
+                return 3
+            except CredentialsMalformed as e:
+                log.error("claude credentials malformed — exiting: %s", e)
+                return 3
             time.sleep(min(5.0, cfg.ccusage_poll_sec / 2.0))
     finally:
         mqtt_client.stop()

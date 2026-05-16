@@ -6,6 +6,12 @@ from typing import Literal, Mapping
 
 import requests
 
+# Required to pair an OAuth bearer token with the Messages API. Mirrors
+# Clawdmeter/daemon/claude_usage_daemon.py:42.
+_OAUTH_BETA = "oauth-2025-04-20"
+_ANTHROPIC_VERSION = "2023-06-01"
+_USER_AGENT = "claude-code/2.1.5"
+
 Status = Literal["allowed", "limited", "unknown"]
 
 
@@ -38,15 +44,19 @@ def _parse_pct(headers: Mapping[str, str], name: str) -> float | None:
 
 
 def _parse_reset_minutes(headers: Mapping[str, str], name: str, *, now: datetime) -> int | None:
+    """Anthropic returns reset timestamps as Unix epoch seconds in a string.
+
+    (Not ISO 8601 — verified against the Clawdmeter daemon which reads the
+    same headers from real responses.)
+    """
     raw = _get_ci(headers, name)
     if raw is None:
         return None
     try:
-        # Anthropic uses RFC3339; "Z" is +00:00
-        reset_at = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        reset_unix = float(raw)
     except ValueError:
         return None
-    delta_sec = (reset_at - now).total_seconds()
+    delta_sec = reset_unix - now.timestamp()
     return max(0, round(delta_sec / 60))
 
 
@@ -91,16 +101,20 @@ class AnthropicRateLimited(AnthropicProbeError):
 
 def probe(
     *,
-    api_key: str,
+    access_token: str,
     api_base: str,
     model: str,
     timeout_sec: float,
     now: datetime | None = None,
 ) -> RateLimitSnapshot:
-    """POST /v1/messages with the smallest valid body; return parsed headers.
+    """POST /v1/messages with the smallest valid OAuth-authed body; return parsed headers.
+
+    Uses the Claude Code OAuth bearer flow (anthropic-beta: oauth-2025-04-20)
+    so the response headers reflect the same 5h/7d window Claude Code uses.
+    See Clawdmeter/daemon/claude_usage_daemon.py:40-50.
 
     Raises:
-        AnthropicAuthError: 401 or 403 — credentials are wrong, fatal.
+        AnthropicAuthError: 401 or 403 — token is wrong/expired, fatal.
         AnthropicRateLimited: 429 — back off and keep going.
         AnthropicProbeError: any other non-2xx, or network failure.
     """
@@ -108,12 +122,14 @@ def probe(
     body = {
         "model": model,
         "max_tokens": 1,
-        "messages": [{"role": "user", "content": "."}],
+        "messages": [{"role": "user", "content": "hi"}],
     }
     request_headers = {
-        "x-api-key": api_key,
-        "anthropic-version": "2023-06-01",
+        "Authorization": f"Bearer {access_token}",
+        "anthropic-version": _ANTHROPIC_VERSION,
+        "anthropic-beta": _OAUTH_BETA,
         "content-type": "application/json",
+        "User-Agent": _USER_AGENT,
     }
     try:
         resp = requests.post(url, headers=request_headers, json=body, timeout=timeout_sec)
