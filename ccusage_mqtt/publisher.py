@@ -40,8 +40,8 @@ def build_discovery_configs(
     device_block = {
         "identifiers": [device_id],
         "name": device_name,
-        "manufacturer": "openclaw",
-        "model": "ccusage-mqtt",
+        "manufacturer": "ccusage-mqtt",
+        "model": "Claude Code usage publisher",
     }
     configs: list[DiscoveryConfig] = []
     for sid, fname, unit, dclass, sclass, icon, options in _SENSOR_SPECS:

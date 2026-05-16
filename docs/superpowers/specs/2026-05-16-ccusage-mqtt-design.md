@@ -3,7 +3,7 @@
 **Date:** 2026-05-16
 **Owner:** George
 **Status:** Approved, ready for implementation plan
-**Repo:** `~/code/ccusage-mqtt/` (new sibling of `openclaw`, `clawd-sprite-extractor`)
+**Repo:** `~/code/ccusage-mqtt/`
 
 ## 1. Goal
 

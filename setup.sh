@@ -50,7 +50,7 @@ echo "ccusage-mqtt setup — MQTT broker settings"
 echo "(everything else uses defaults from .env.example — edit later if needed)"
 echo
 
-prompt        MQTT_HOST       "MQTT broker host" "192.168.50.215"
+prompt        MQTT_HOST       "MQTT broker host" "homeassistant.local"
 prompt        MQTT_PORT       "MQTT broker port" "1883"
 prompt        MQTT_USER       "MQTT username"    ""
 prompt_secret MQTT_PASS       "MQTT password"
