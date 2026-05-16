@@ -32,6 +32,8 @@ class AppConfig:
     mqtt_client_id: str
     mqtt_discovery_prefix: str
     mqtt_base_topic: str
+    mqtt_device_name: str
+    account_name: str | None
 
     claude_credentials_path: str
     anthropic_api_base: str
@@ -65,6 +67,8 @@ def load_config_from_env(env: Mapping[str, str]) -> AppConfig:
         mqtt_client_id=env.get("MQTT_CLIENT_ID", "ccusage-mqtt"),
         mqtt_discovery_prefix=env.get("MQTT_DISCOVERY_PREFIX", "homeassistant"),
         mqtt_base_topic=env.get("MQTT_BASE_TOPIC", "claude_code_usage"),
+        mqtt_device_name=env.get("MQTT_DEVICE_NAME", "Claude Code Usage"),
+        account_name=env.get("ACCOUNT_NAME") or None,
         claude_credentials_path=env.get(
             "CLAUDE_CREDENTIALS_PATH",
             "/data/claude-projects/.credentials.json",
@@ -98,9 +102,10 @@ def main() -> int:
 
     discovery = build_discovery_configs(
         device_id=cfg.mqtt_base_topic,
-        device_name="Claude Code Usage",
+        device_name=cfg.mqtt_device_name,
         base_topic=cfg.mqtt_base_topic,
         discovery_prefix=cfg.mqtt_discovery_prefix,
+        include_account_attribute=bool(cfg.account_name),
     )
 
     mqtt_client = MqttClient(
@@ -140,6 +145,7 @@ def main() -> int:
             idle_below=cfg.mood_idle_below,
             normal_below=cfg.mood_normal_below,
             active_below=cfg.mood_active_below,
+            account_name=cfg.account_name,
         ),
         mqtt=mqtt_client,
         poll_headers=poll_headers,

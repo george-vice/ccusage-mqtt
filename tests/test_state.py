@@ -135,3 +135,22 @@ def test_to_mqtt_payloads_wraps_values_in_json_envelope():
     assert payloads["mood"] == {"value": "idle"}
     assert payloads["session_status"] == {"value": "unknown"}
     assert payloads["tokens_used"] == {"value": None}
+
+
+def test_to_mqtt_payloads_includes_account_when_provided():
+    s = State()
+    s.session_pct = 42.0
+    payloads = s.to_mqtt_payloads(account="work")
+    assert payloads["session_pct"] == {"value": 42.0, "account": "work"}
+    assert payloads["mood"] == {"value": "idle", "account": "work"}
+    # all 14 payloads should carry the account
+    assert all("account" in p and p["account"] == "work" for p in payloads.values())
+
+
+def test_to_mqtt_payloads_omits_account_when_falsy():
+    s = State()
+    # Both None and empty string should produce the bare {"value": ...} shape.
+    for account in (None, ""):
+        payloads = s.to_mqtt_payloads(account=account)
+        assert payloads["session_pct"] == {"value": None}
+        assert "account" not in payloads["session_pct"]

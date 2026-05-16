@@ -122,5 +122,10 @@ class State:
             self.tokens_per_hour = None
             self.spend_per_hour_usd = None
 
-    def to_mqtt_payloads(self) -> dict[str, dict]:
+    def to_mqtt_payloads(self, *, account: str | None = None) -> dict[str, dict]:
+        if account:
+            return {
+                name: {"value": getattr(self, name), "account": account}
+                for name in SENSOR_FIELDS
+            }
         return {name: {"value": getattr(self, name)} for name in SENSOR_FIELDS}

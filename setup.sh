@@ -50,10 +50,27 @@ echo "ccusage-mqtt setup — MQTT broker settings"
 echo "(everything else uses defaults from .env.example — edit later if needed)"
 echo
 
-prompt        MQTT_HOST       "MQTT broker host" "homeassistant.local"
-prompt        MQTT_PORT       "MQTT broker port" "1883"
-prompt        MQTT_USER       "MQTT username"    ""
-prompt_secret MQTT_PASS       "MQTT password"
+prompt        MQTT_HOST        "MQTT broker host" "homeassistant.local"
+prompt        MQTT_PORT        "MQTT broker port" "1883"
+prompt        MQTT_USER        "MQTT username"    ""
+prompt_secret MQTT_PASS        "MQTT password"
+
+echo
+echo "HA device identity (for multi-instance setups, change these per instance):"
+prompt        MQTT_DEVICE_NAME "HA device name"   "Claude Code Usage"
+prompt        ACCOUNT_NAME     "Account label (optional, e.g. 'work' or 'personal')" ""
+
+# When ACCOUNT_NAME is set, auto-suffix the MQTT topic and client ID so two
+# instances on the same broker don't collide. User can still override either.
+if [[ -n "$ACCOUNT_NAME" ]]; then
+    # Slugify: lower-case, strip non-alnum, collapse to underscores
+    ACCOUNT_SLUG=$(echo "$ACCOUNT_NAME" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9' '_' | sed 's/__*/_/g; s/^_//; s/_$//')
+    MQTT_BASE_TOPIC="claude_code_usage_${ACCOUNT_SLUG}"
+    MQTT_CLIENT_ID="ccusage-mqtt-${ACCOUNT_SLUG}"
+else
+    MQTT_BASE_TOPIC="claude_code_usage"
+    MQTT_CLIENT_ID="ccusage-mqtt"
+fi
 
 # Container runs as this UID/GID so the read-only bind-mount of ~/.claude
 # (mode 0600 on the host) is readable inside the container.
@@ -73,13 +90,18 @@ umask 077  # ensure 0600 on create
     echo "MQTT_PORT=${MQTT_PORT}"
     echo "MQTT_USER=${MQTT_USER}"
     echo "MQTT_PASS=${MQTT_PASS}"
+    echo "MQTT_CLIENT_ID=${MQTT_CLIENT_ID}"
+    echo "MQTT_BASE_TOPIC=${MQTT_BASE_TOPIC}"
+    echo "MQTT_DEVICE_NAME=${MQTT_DEVICE_NAME}"
+    echo "ACCOUNT_NAME=${ACCOUNT_NAME}"
     echo
     # Match container UID/GID to host so the bind-mounted ~/.claude is readable.
     echo "USER_UID=${USER_UID}"
     echo "USER_GID=${USER_GID}"
-    # Everything else — copy non-MQTT lines from .env.example verbatim
+    # Everything else — copy lines from .env.example verbatim, skipping the
+    # ones we just wrote above and the header comment block.
     echo
-    grep -vE '^(MQTT_HOST|MQTT_PORT|MQTT_USER|MQTT_PASS|USER_UID|USER_GID|# MQTT broker)' "$TEMPLATE"
+    grep -vE '^(MQTT_HOST|MQTT_PORT|MQTT_USER|MQTT_PASS|MQTT_CLIENT_ID|MQTT_BASE_TOPIC|MQTT_DEVICE_NAME|ACCOUNT_NAME|USER_UID|USER_GID|# MQTT broker|# Friendly name|# Optional\.)' "$TEMPLATE"
 } > "$ENV_FILE"
 
 # Make sure it ended up 0600 (umask above should have done it, belt-and-braces).

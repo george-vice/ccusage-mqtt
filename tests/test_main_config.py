@@ -39,12 +39,29 @@ def test_load_config_uses_defaults():
     assert cfg.mqtt_port == 1883
     assert cfg.mqtt_discovery_prefix == "homeassistant"
     assert cfg.mqtt_base_topic == "claude_code_usage"
+    assert cfg.mqtt_device_name == "Claude Code Usage"
+    assert cfg.account_name is None
     assert cfg.claude_credentials_path == "/data/claude-projects/.credentials.json"
     assert cfg.header_poll_sec == 60.0
     assert cfg.ccusage_poll_sec == 30.0
     assert cfg.burn_rate_window_sec == 240.0
     assert cfg.mood_idle_below == 0.10
     assert cfg.log_level == "INFO"
+
+
+def test_load_config_custom_device_name_and_account():
+    cfg = load_config_from_env({
+        "MQTT_HOST": "broker",
+        "MQTT_DEVICE_NAME": "Claude Code (Work)",
+        "ACCOUNT_NAME": "work",
+    })
+    assert cfg.mqtt_device_name == "Claude Code (Work)"
+    assert cfg.account_name == "work"
+
+
+def test_load_config_empty_account_becomes_none():
+    cfg = load_config_from_env({"MQTT_HOST": "broker", "ACCOUNT_NAME": ""})
+    assert cfg.account_name is None
 
 
 def test_load_config_requires_mqtt_host():

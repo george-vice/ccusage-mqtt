@@ -38,6 +38,7 @@ def build_discovery_configs(
     device_name: str,
     base_topic: str,
     discovery_prefix: str = "homeassistant",
+    include_account_attribute: bool = False,
 ) -> list[DiscoveryConfig]:
     device_block = {
         "identifiers": [device_id],
@@ -69,6 +70,12 @@ def build_discovery_configs(
             body["suggested_display_precision"] = precision
         if options is not None:
             body["options"] = options
+        if include_account_attribute:
+            # Surface the per-payload `account` field as an HA attribute on
+            # every sensor entity. Automations can then filter on
+            # `state_attr('sensor.claude_code_usage_mood', 'account')`.
+            body["json_attributes_topic"] = f"{base_topic}/{sid}/state"
+            body["json_attributes_template"] = "{{ {'account': value_json.account} | tojson }}"
         configs.append(DiscoveryConfig(
             sensor_id=sid,
             topic=f"{discovery_prefix}/sensor/{device_id}/{sid}/config",
@@ -191,6 +198,7 @@ class LoopConfig:
     idle_below: float
     normal_below: float
     active_below: float
+    account_name: str | None = None
 
 
 class PublisherLoop:
@@ -232,7 +240,7 @@ class PublisherLoop:
         )
         self._mqtt.publish_state(
             base_topic=self._cfg.base_topic,
-            payloads=self._state.to_mqtt_payloads(),
+            payloads=self._state.to_mqtt_payloads(account=self._cfg.account_name),
         )
 
     def _do_header_poll(self, now_monotonic: float) -> None:

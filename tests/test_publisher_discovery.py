@@ -67,6 +67,42 @@ def test_discovery_topic_format():
     assert spct.topic == "homeassistant/sensor/claude_code_usage/session_pct/config"
 
 
+def test_include_account_attribute_adds_json_attributes_topic():
+    cfgs = build_discovery_configs(
+        device_id="claude_code_usage",
+        device_name="Claude Code Usage",
+        base_topic="claude_code_usage",
+        include_account_attribute=True,
+    )
+    for cfg in cfgs:
+        body = json.loads(cfg.payload)
+        assert body["json_attributes_topic"] == f"claude_code_usage/{cfg.sensor_id}/state"
+        assert "account" in body["json_attributes_template"]
+
+
+def test_no_account_attribute_by_default():
+    cfgs = build_discovery_configs(
+        device_id="claude_code_usage",
+        device_name="Claude Code Usage",
+        base_topic="claude_code_usage",
+    )
+    for cfg in cfgs:
+        body = json.loads(cfg.payload)
+        assert "json_attributes_topic" not in body
+        assert "json_attributes_template" not in body
+
+
+def test_device_name_flows_into_discovery():
+    cfgs = build_discovery_configs(
+        device_id="claude_code_usage",
+        device_name="Claude Code (Work)",
+        base_topic="claude_code_usage",
+    )
+    for cfg in cfgs:
+        body = json.loads(cfg.payload)
+        assert body["device"]["name"] == "Claude Code (Work)"
+
+
 def test_numeric_sensors_have_display_precision():
     cfgs = build_discovery_configs(
         device_id="claude_code_usage",
