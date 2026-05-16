@@ -1,5 +1,5 @@
 from collections import deque
-from typing import Deque
+from typing import Deque, Literal
 
 
 class RingBuffer:
@@ -51,3 +51,29 @@ def detect_reset(rb: RingBuffer, *, new_pct: float) -> bool:
     if len(rb) == 0:
         return False
     return new_pct + 5.0 < rb.latest()[1]
+
+
+Mood = Literal["idle", "normal", "active", "heavy"]
+
+
+def classify_mood(
+    rate_pct_per_min: float | None,
+    *,
+    idle_below: float,
+    normal_below: float,
+    active_below: float,
+) -> Mood:
+    """Map %/min to a mood bucket. Ports usage_rate.cpp:69-72 thresholds.
+
+    Note the asymmetry: rates exactly equal to a threshold fall into the
+    *upper* bucket. The firmware uses `< threshold` checks; this matches that.
+    """
+    if rate_pct_per_min is None:
+        return "idle"
+    if rate_pct_per_min < idle_below:
+        return "idle"
+    if rate_pct_per_min < normal_below:
+        return "normal"
+    if rate_pct_per_min < active_below:
+        return "active"
+    return "heavy"

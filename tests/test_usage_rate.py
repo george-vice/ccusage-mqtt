@@ -75,3 +75,59 @@ def test_detect_reset_ignores_small_drop():
 def test_detect_reset_false_when_empty():
     rb = RingBuffer(capacity=6)
     assert detect_reset(rb, new_pct=10.0) is False
+
+
+import pytest
+from ccusage_mqtt.usage_rate import classify_mood, Mood
+
+
+@pytest.mark.parametrize("rate,expected", [
+    (None,  "idle"),     # warm-up
+    (0.0,   "idle"),
+    (0.05,  "idle"),
+    (0.09,  "idle"),
+    (0.10,  "normal"),   # at threshold → next bucket (firmware uses < 0.10 → idle)
+    (0.15,  "normal"),
+    (0.20,  "active"),   # at threshold
+    (0.30,  "active"),
+    (0.33,  "heavy"),    # at threshold
+    (0.50,  "heavy"),
+    (1.0,   "heavy"),
+])
+def test_classify_mood(rate: float | None, expected: str):
+    mood = classify_mood(
+        rate,
+        idle_below=0.10,
+        normal_below=0.20,
+        active_below=0.33,
+    )
+    assert mood == expected
+
+
+def test_mood_literal_values():
+    # Enum values must match HA discovery options exactly
+    assert set(Mood.__args__) == {"idle", "normal", "active", "heavy"}
+
+
+def test_golden_sequence_matches_firmware():
+    """Golden test: a recorded sequence of (ts_sec, session_pct) samples
+    must produce the same mood-per-poll as Clawdmeter's usage_rate.cpp.
+
+    Sequence: 0 → 100% over 5 hours = 100/300 = 0.333 %/min → heavy after warm-up.
+    """
+    rb = RingBuffer(capacity=6)
+    moods: list[str] = []
+    # Add 10 samples at 60s intervals, simulating 0.333 %/min growth
+    for i in range(10):
+        ts = i * 60.0
+        pct = i * (100.0 / 300.0)  # 0.333 %/min
+        if detect_reset(rb, new_pct=pct):
+            rb.clear()
+        rb.add(ts, pct)
+        rate = compute_rate(rb, min_window_sec=240)
+        moods.append(classify_mood(rate, idle_below=0.10, normal_below=0.20, active_below=0.33))
+
+    # Warm-up: first 4 samples (0,60,120,180s) span < 240s → idle
+    assert moods[:4] == ["idle", "idle", "idle", "idle"]
+    # By sample 5 (i=4, ts=240s) timespan = 240s ≥ 240 → rate ≈ 0.333 → heavy
+    assert moods[4:] == ["heavy"] * 6
