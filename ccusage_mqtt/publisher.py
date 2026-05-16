@@ -158,3 +158,110 @@ class MqttClient:
 
     def _on_disconnect(self, client, userdata, disconnect_flags, reason_code, properties) -> None:
         _log.warning("mqtt disconnected: reason_code=%s — paho will auto-reconnect", reason_code)
+
+
+from dataclasses import dataclass
+from typing import Callable
+
+from ccusage_mqtt.anthropic_client import (
+    AnthropicAuthError,
+    AnthropicProbeError,
+    AnthropicRateLimited,
+    RateLimitSnapshot,
+)
+from ccusage_mqtt.ccusage import BlockSnapshot, CcusageError
+from ccusage_mqtt.state import DerivationConfig, State
+from ccusage_mqtt.usage_rate import RingBuffer, compute_rate, detect_reset
+
+
+_HEADER_BACKOFF_AFTER_429_SEC = 300.0
+_HEADERS_STALE_AFTER_FAILURES = 3
+
+
+@dataclass
+class LoopConfig:
+    base_topic: str
+    header_poll_sec: float
+    ccusage_poll_sec: float
+    burn_rate_window_sec: float
+    idle_below: float
+    normal_below: float
+    active_below: float
+
+
+class PublisherLoop:
+    def __init__(
+        self,
+        *,
+        cfg: LoopConfig,
+        mqtt: "MqttClient",
+        poll_headers: Callable[[], RateLimitSnapshot],
+        poll_ccusage: Callable[[], BlockSnapshot | None],
+    ) -> None:
+        self._cfg = cfg
+        self._mqtt = mqtt
+        self._poll_headers = poll_headers
+        self._poll_ccusage = poll_ccusage
+
+        self._state = State()
+        self._ring = RingBuffer(capacity=6)
+        self._last_header_at: float | None = None
+        self._last_ccusage_at: float | None = None
+        self._next_header_due: float = 0.0
+        self._next_ccusage_due: float = 0.0
+        self._header_failure_streak = 0
+
+    def tick(self, *, now_monotonic: float) -> None:
+        if now_monotonic >= self._next_header_due:
+            self._do_header_poll(now_monotonic)
+        if now_monotonic >= self._next_ccusage_due:
+            self._do_ccusage_poll(now_monotonic)
+
+        burn_rate = compute_rate(self._ring, min_window_sec=self._cfg.burn_rate_window_sec)
+        self._state.recompute_derived(
+            burn_rate=burn_rate,
+            cfg=DerivationConfig(
+                idle_below=self._cfg.idle_below,
+                normal_below=self._cfg.normal_below,
+                active_below=self._cfg.active_below,
+            ),
+        )
+        self._mqtt.publish_state(
+            base_topic=self._cfg.base_topic,
+            payloads=self._state.to_mqtt_payloads(),
+        )
+
+    def _do_header_poll(self, now_monotonic: float) -> None:
+        try:
+            snap = self._poll_headers()
+            self._apply_header_snap(snap, now_monotonic)
+            self._header_failure_streak = 0
+            self._next_header_due = now_monotonic + self._cfg.header_poll_sec
+        except AnthropicAuthError:
+            raise  # fatal — propagate to __main__
+        except AnthropicRateLimited as e:
+            self._apply_header_snap(e.snapshot, now_monotonic)
+            self._header_failure_streak = 0
+            self._next_header_due = now_monotonic + _HEADER_BACKOFF_AFTER_429_SEC
+        except AnthropicProbeError:
+            self._header_failure_streak += 1
+            if self._header_failure_streak >= _HEADERS_STALE_AFTER_FAILURES:
+                self._state.mark_headers_stale()
+            self._next_header_due = now_monotonic + self._cfg.header_poll_sec
+
+    def _apply_header_snap(self, snap: RateLimitSnapshot, now_monotonic: float) -> None:
+        if snap.session_pct is not None:
+            if detect_reset(self._ring, new_pct=snap.session_pct):
+                self._ring.clear()
+            self._ring.add(now_monotonic, snap.session_pct)
+        self._state.apply_rate_limits(snap)
+
+    def _do_ccusage_poll(self, now_monotonic: float) -> None:
+        try:
+            snap = self._poll_ccusage()
+            if snap is not None:
+                self._state.apply_block(snap)
+            self._next_ccusage_due = now_monotonic + self._cfg.ccusage_poll_sec
+        except CcusageError:
+            # Retained token/spend values stand.
+            self._next_ccusage_due = now_monotonic + self._cfg.ccusage_poll_sec
