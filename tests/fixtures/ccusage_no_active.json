@@ -1,0 +1,14 @@
+{
+  "blocks": [
+    {
+      "id": "block-1",
+      "startTime": "2026-05-16T10:00:00.000Z",
+      "endTime": "2026-05-16T15:00:00.000Z",
+      "isActive": false,
+      "tokenCounts": {"inputTokens": 1000, "outputTokens": 2000, "cacheCreationInputTokens": 0, "cacheReadInputTokens": 0},
+      "totalTokens": 3000,
+      "costUSD": 0.04,
+      "models": ["claude-opus-4-7"]
+    }
+  ]
+}
