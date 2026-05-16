@@ -1,0 +1,15 @@
+services:
+  ccusage-mqtt:
+    build: .
+    image: ccusage-mqtt:local
+    container_name: ccusage-mqtt
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ${HOME}/.claude:/data/claude-projects:ro
+    network_mode: host
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
