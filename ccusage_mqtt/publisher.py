@@ -11,22 +11,24 @@ class DiscoveryConfig:
     payload: str  # JSON-serialized
 
 
-# (sensor_id, friendly_name, unit, device_class, state_class, icon, [enum options or None])
-_SENSOR_SPECS: tuple[tuple[str, str, str | None, str | None, str | None, str, list[str] | None], ...] = (
-    ("session_pct",            "Session %",            "%",        None,        "measurement",     "mdi:gauge",                None),
-    ("session_reset_minutes",  "Session resets in",    "min",      None,        "measurement",     "mdi:timer-sand",           None),
-    ("session_status",         "Session status",       None,       "enum",      None,              "mdi:traffic-light",        ["allowed", "limited", "unknown"]),
-    ("weekly_pct",             "Weekly %",             "%",        None,        "measurement",     "mdi:gauge",                None),
-    ("weekly_reset_minutes",   "Weekly resets in",     "min",      None,        "measurement",     "mdi:timer-sand",           None),
-    ("weekly_status",          "Weekly status",        None,       "enum",      None,              "mdi:traffic-light",        ["allowed", "limited", "unknown"]),
-    ("burn_rate_pct_per_min",  "Burn rate",            "%/min",    None,        "measurement",     "mdi:chart-line",           None),
-    ("mood",                   "Mood",                 None,       "enum",      None,              "mdi:emoticon",             ["idle", "normal", "active", "heavy"]),
-    ("time_to_limit_minutes",  "Time to limit",        "min",      None,        "measurement",     "mdi:timer-sand-complete",  None),
-    ("block_elapsed_pct",      "Block elapsed",        "%",        None,        "measurement",     "mdi:progress-clock",       None),
-    ("tokens_used",            "Tokens used",          "tokens",   None,        "total_increasing","mdi:format-letter-matches", None),
-    ("tokens_per_hour",        "Tokens per hour",      "tokens/h", None,        "measurement",     "mdi:speedometer",          None),
-    ("spend_so_far_usd",       "Spend so far",         "USD",      "monetary",  "total_increasing","mdi:currency-usd",         None),
-    ("spend_per_hour_usd",     "Spend per hour",       "USD/h",    None,        "measurement",     "mdi:cash-clock",           None),
+# (sensor_id, friendly_name, unit, device_class, state_class, icon, display_precision, [enum options or None])
+# display_precision = `suggested_display_precision` (HA UI rounding hint; ignored
+# for enum sensors). None = HA uses default (full precision).
+_SENSOR_SPECS: tuple[tuple[str, str, str | None, str | None, str | None, str, int | None, list[str] | None], ...] = (
+    ("session_pct",            "Session %",         "%",        None,        "measurement",      "mdi:gauge",                 1,    None),
+    ("session_reset_minutes",  "Session resets in", "min",      None,        "measurement",      "mdi:timer-sand",            0,    None),
+    ("session_status",         "Session status",    None,       "enum",      None,               "mdi:traffic-light",         None, ["allowed", "limited", "unknown"]),
+    ("weekly_pct",             "Weekly %",          "%",        None,        "measurement",      "mdi:gauge",                 1,    None),
+    ("weekly_reset_minutes",   "Weekly resets in",  "min",      None,        "measurement",      "mdi:timer-sand",            0,    None),
+    ("weekly_status",          "Weekly status",     None,       "enum",      None,               "mdi:traffic-light",         None, ["allowed", "limited", "unknown"]),
+    ("burn_rate_pct_per_min",  "Burn rate",         "%/min",    None,        "measurement",      "mdi:chart-line",            3,    None),
+    ("mood",                   "Mood",              None,       "enum",      None,               "mdi:emoticon",              None, ["idle", "normal", "active", "heavy"]),
+    ("time_to_limit_minutes",  "Time to limit",     "min",      None,        "measurement",      "mdi:timer-sand-complete",   0,    None),
+    ("block_elapsed_pct",      "Block elapsed",     "%",        None,        "measurement",      "mdi:progress-clock",        1,    None),
+    ("tokens_used",            "Tokens used",       "tokens",   None,        "total_increasing", "mdi:format-letter-matches", 0,    None),
+    ("tokens_per_hour",        "Tokens per hour",   "tokens/h", None,        "measurement",      "mdi:speedometer",           0,    None),
+    ("spend_so_far_usd",       "Spend so far",      "USD",      "monetary",  "total_increasing", "mdi:currency-usd",          2,    None),
+    ("spend_per_hour_usd",     "Spend per hour",    "USD/h",    None,        "measurement",      "mdi:cash-clock",            2,    None),
 )
 
 
@@ -44,7 +46,7 @@ def build_discovery_configs(
         "model": "Claude Code usage publisher",
     }
     configs: list[DiscoveryConfig] = []
-    for sid, fname, unit, dclass, sclass, icon, options in _SENSOR_SPECS:
+    for sid, fname, unit, dclass, sclass, icon, precision, options in _SENSOR_SPECS:
         body: dict = {
             "name": fname,
             "unique_id": f"{device_id}_{sid}",
@@ -63,6 +65,8 @@ def build_discovery_configs(
             body["device_class"] = dclass
         if sclass is not None:
             body["state_class"] = sclass
+        if precision is not None:
+            body["suggested_display_precision"] = precision
         if options is not None:
             body["options"] = options
         configs.append(DiscoveryConfig(

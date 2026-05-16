@@ -38,7 +38,8 @@ def _parse_pct(headers: Mapping[str, str], name: str) -> float | None:
     if raw is None:
         return None
     try:
-        return float(raw) * 100.0
+        # Round to avoid IEEE-754 noise like `0.07 * 100 == 7.000000000000001`.
+        return round(float(raw) * 100.0, 4)
     except ValueError:
         return None
 

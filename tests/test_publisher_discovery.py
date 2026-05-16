@@ -65,3 +65,20 @@ def test_discovery_topic_format():
     )
     spct = next(c for c in cfgs if c.sensor_id == "session_pct")
     assert spct.topic == "homeassistant/sensor/claude_code_usage/session_pct/config"
+
+
+def test_numeric_sensors_have_display_precision():
+    cfgs = build_discovery_configs(
+        device_id="claude_code_usage",
+        device_name="Claude Code Usage",
+        base_topic="claude_code_usage",
+    )
+    by_id = {c.sensor_id: json.loads(c.payload) for c in cfgs}
+    # spot-check expected precisions
+    assert by_id["session_pct"]["suggested_display_precision"] == 1
+    assert by_id["burn_rate_pct_per_min"]["suggested_display_precision"] == 3
+    assert by_id["spend_so_far_usd"]["suggested_display_precision"] == 2
+    assert by_id["tokens_used"]["suggested_display_precision"] == 0
+    # enum sensors must NOT have precision (it's meaningless for strings)
+    assert "suggested_display_precision" not in by_id["mood"]
+    assert "suggested_display_precision" not in by_id["session_status"]

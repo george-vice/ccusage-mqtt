@@ -51,7 +51,7 @@ class State:
     block_elapsed_pct: float | None = None
 
     tokens_used: int | None = None
-    tokens_per_hour: float | None = None
+    tokens_per_hour: int | None = None
     spend_so_far_usd: float | None = None
     spend_per_hour_usd: float | None = None
 
@@ -68,7 +68,9 @@ class State:
 
     def apply_block(self, snap: BlockSnapshot) -> None:
         self.tokens_used = snap.tokens_used
-        self.spend_so_far_usd = snap.spend_so_far_usd
+        # ccusage emits e.g. 20.717150999999998 for $20.7171510; round to cents
+        # so MQTT subscribers see clean currency values, not float noise.
+        self.spend_so_far_usd = round(snap.spend_so_far_usd, 2)
         self.block_elapsed_minutes = snap.block_elapsed_minutes
 
     def mark_headers_stale(self) -> None:
@@ -91,13 +93,14 @@ class State:
         )
 
         if burn_rate is not None and burn_rate > 0.0 and self.session_pct is not None:
-            self.time_to_limit_minutes = (100.0 - self.session_pct) / burn_rate
+            self.time_to_limit_minutes = round((100.0 - self.session_pct) / burn_rate, 1)
         else:
             self.time_to_limit_minutes = None
 
         if self.session_reset_minutes is not None:
             elapsed = BLOCK_WINDOW_MINUTES - self.session_reset_minutes
-            self.block_elapsed_pct = max(0.0, min(100.0, elapsed / BLOCK_WINDOW_MINUTES * 100.0))
+            raw_pct = max(0.0, min(100.0, elapsed / BLOCK_WINDOW_MINUTES * 100.0))
+            self.block_elapsed_pct = round(raw_pct, 2)
         else:
             self.block_elapsed_pct = None
 
@@ -106,8 +109,15 @@ class State:
             and self.block_elapsed_minutes >= RATE_MIN_ELAPSED_MIN
         ):
             elapsed_h = self.block_elapsed_minutes / 60.0
-            self.tokens_per_hour = (self.tokens_used / elapsed_h) if self.tokens_used is not None else None
-            self.spend_per_hour_usd = (self.spend_so_far_usd / elapsed_h) if self.spend_so_far_usd is not None else None
+            # tokens/hr rounded to int; tokens are discrete so fractions are noise.
+            self.tokens_per_hour = (
+                round(self.tokens_used / elapsed_h) if self.tokens_used is not None else None
+            )
+            self.spend_per_hour_usd = (
+                round(self.spend_so_far_usd / elapsed_h, 2)
+                if self.spend_so_far_usd is not None
+                else None
+            )
         else:
             self.tokens_per_hour = None
             self.spend_per_hour_usd = None

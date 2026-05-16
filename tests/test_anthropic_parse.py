@@ -63,6 +63,13 @@ def test_header_lookup_is_case_insensitive():
     assert snap.session_status == "limited"
 
 
+def test_parse_pct_no_float_artifacts():
+    """`0.07 * 100.0` in IEEE-754 is 7.000000000000001 — parser must round it out."""
+    headers = {"anthropic-ratelimit-unified-5h-utilization": "0.07"}
+    snap = parse_ratelimit_headers(headers, now=_NOW)
+    assert snap.session_pct == 7.0
+
+
 def test_malformed_reset_returns_none():
     """If the header isn't a numeric string, we get None, not a crash."""
     headers = {
