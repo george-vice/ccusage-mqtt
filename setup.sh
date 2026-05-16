@@ -55,6 +55,11 @@ prompt        MQTT_PORT       "MQTT broker port" "1883"
 prompt        MQTT_USER       "MQTT username"    ""
 prompt_secret MQTT_PASS       "MQTT password"
 
+# Container runs as this UID/GID so the read-only bind-mount of ~/.claude
+# (mode 0600 on the host) is readable inside the container.
+USER_UID=$(id -u)
+USER_GID=$(id -g)
+
 echo
 echo "Writing $ENV_FILE …"
 
@@ -68,9 +73,13 @@ umask 077  # ensure 0600 on create
     echo "MQTT_PORT=${MQTT_PORT}"
     echo "MQTT_USER=${MQTT_USER}"
     echo "MQTT_PASS=${MQTT_PASS}"
+    echo
+    # Match container UID/GID to host so the bind-mounted ~/.claude is readable.
+    echo "USER_UID=${USER_UID}"
+    echo "USER_GID=${USER_GID}"
     # Everything else — copy non-MQTT lines from .env.example verbatim
     echo
-    grep -vE '^(MQTT_HOST|MQTT_PORT|MQTT_USER|MQTT_PASS|# MQTT broker)' "$TEMPLATE"
+    grep -vE '^(MQTT_HOST|MQTT_PORT|MQTT_USER|MQTT_PASS|USER_UID|USER_GID|# MQTT broker)' "$TEMPLATE"
 } > "$ENV_FILE"
 
 # Make sure it ended up 0600 (umask above should have done it, belt-and-braces).

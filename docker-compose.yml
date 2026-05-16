@@ -5,6 +5,10 @@ services:
     container_name: ccusage-mqtt
     restart: unless-stopped
     env_file: .env
+    # Run as the host user so the read-only ~/.claude bind-mount (mode 0600)
+    # is readable from inside the container. setup.sh records id -u / id -g
+    # as USER_UID / USER_GID in .env.
+    user: "${USER_UID:-1000}:${USER_GID:-1000}"
     volumes:
       - ${HOME}/.claude:/data/claude-projects:ro
     network_mode: host
