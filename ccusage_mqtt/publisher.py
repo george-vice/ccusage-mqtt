@@ -71,3 +71,90 @@ def build_discovery_configs(
             payload=json.dumps(body),
         ))
     return configs
+
+
+import logging
+from typing import Iterable
+
+import paho.mqtt.client as mqtt
+
+_log = logging.getLogger(__name__)
+
+
+class MqttClient:
+    """Wraps paho-mqtt with LWT, retained publishing, and re-discovery on reconnect."""
+
+    def __init__(
+        self,
+        *,
+        host: str,
+        port: int,
+        username: str | None,
+        password: str | None,
+        client_id: str,
+        availability_topic: str,
+    ) -> None:
+        self._client = mqtt.Client(
+            callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
+            client_id=client_id,
+            clean_session=False,
+        )
+        if username:
+            self._client.username_pw_set(username, password or "")
+        self._client.will_set(availability_topic, payload="offline", qos=1, retain=True)
+        self._client.on_connect = self._on_connect
+        self._client.on_disconnect = self._on_disconnect
+
+        self._host = host
+        self._port = port
+        self._availability_topic = availability_topic
+        self._discovery: list[DiscoveryConfig] = []
+        self._last_state: dict[str, dict] = {}
+
+    def set_discovery_configs(self, configs: list[DiscoveryConfig]) -> None:
+        self._discovery = list(configs)
+
+    def connect_and_loop(self) -> None:
+        self._client.connect_async(self._host, self._port, keepalive=60)
+        self._client.loop_start()
+
+    def stop(self) -> None:
+        # Cleanly publish offline; paho may also fire LWT on disconnect.
+        try:
+            self._client.publish(self._availability_topic, payload="offline", qos=1, retain=True)
+        finally:
+            self._client.loop_stop()
+            self._client.disconnect()
+
+    def publish_discovery(self, configs: Iterable[DiscoveryConfig]) -> None:
+        for cfg in configs:
+            self._client.publish(cfg.topic, cfg.payload, qos=1, retain=True)
+
+    def publish_state(self, *, base_topic: str, payloads: dict[str, dict]) -> None:
+        for sensor_id, payload in payloads.items():
+            if self._last_state.get(sensor_id) == payload:
+                continue
+            self._client.publish(
+                f"{base_topic}/{sensor_id}/state",
+                json.dumps(payload),
+                qos=1,
+                retain=True,
+            )
+            self._last_state[sensor_id] = payload
+
+    # --- paho callbacks ---
+
+    def _on_connect(self, client, userdata, flags, reason_code, properties) -> None:
+        if reason_code != 0:
+            _log.warning("mqtt connect failed: reason_code=%s", reason_code)
+            return
+        _log.info("mqtt connected to %s:%s", self._host, self._port)
+        client.publish(self._availability_topic, payload="online", qos=1, retain=True)
+        # Re-publish discovery so HA re-creates entities if they got cleared.
+        for cfg in self._discovery:
+            client.publish(cfg.topic, cfg.payload, qos=1, retain=True)
+        # Force re-publish of state on next publish_state() by clearing the dedup cache.
+        self._last_state.clear()
+
+    def _on_disconnect(self, client, userdata, disconnect_flags, reason_code, properties) -> None:
+        _log.warning("mqtt disconnected: reason_code=%s — paho will auto-reconnect", reason_code)
