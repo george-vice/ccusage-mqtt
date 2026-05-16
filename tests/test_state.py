@@ -109,3 +109,28 @@ def test_recompute_derived_handles_missing_session_pct():
     s.recompute_derived(burn_rate=0.25)
     assert s.time_to_limit_minutes is None
     assert s.block_elapsed_pct is None
+
+
+def test_to_mqtt_payloads_returns_all_14_sensors():
+    s = State()
+    payloads = s.to_mqtt_payloads()
+    expected_keys = {
+        "session_pct", "session_reset_minutes", "session_status",
+        "weekly_pct", "weekly_reset_minutes", "weekly_status",
+        "burn_rate_pct_per_min", "mood",
+        "time_to_limit_minutes", "block_elapsed_pct",
+        "tokens_used", "tokens_per_hour",
+        "spend_so_far_usd", "spend_per_hour_usd",
+    }
+    assert set(payloads.keys()) == expected_keys
+    assert len(payloads) == 14
+
+
+def test_to_mqtt_payloads_wraps_values_in_json_envelope():
+    s = State()
+    s.session_pct = 42.0
+    payloads = s.to_mqtt_payloads()
+    assert payloads["session_pct"] == {"value": 42.0}
+    assert payloads["mood"] == {"value": "idle"}
+    assert payloads["session_status"] == {"value": "unknown"}
+    assert payloads["tokens_used"] == {"value": None}

@@ -18,6 +18,24 @@ class DerivationConfig:
     active_below: float = 0.33
 
 
+SENSOR_FIELDS: tuple[str, ...] = (
+    "session_pct",
+    "session_reset_minutes",
+    "session_status",
+    "weekly_pct",
+    "weekly_reset_minutes",
+    "weekly_status",
+    "burn_rate_pct_per_min",
+    "mood",
+    "time_to_limit_minutes",
+    "block_elapsed_pct",
+    "tokens_used",
+    "tokens_per_hour",
+    "spend_so_far_usd",
+    "spend_per_hour_usd",
+)
+
+
 @dataclass
 class State:
     session_pct: float | None = None
@@ -93,3 +111,6 @@ class State:
         else:
             self.tokens_per_hour = None
             self.spend_per_hour_usd = None
+
+    def to_mqtt_payloads(self) -> dict[str, dict]:
+        return {name: {"value": getattr(self, name)} for name in SENSOR_FIELDS}
