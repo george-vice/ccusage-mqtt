@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import argparse
 import logging
 import os
 import signal
 import sys
 import time
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Mapping
 
 from ccusage_mqtt.anthropic_client import AnthropicAuthError, probe
@@ -58,7 +60,21 @@ def _required(env: Mapping[str, str], name: str) -> str:
     return val
 
 
+def _default_claude_dir() -> str:
+    """The default Claude Code config dir for the current process.
+
+    Inside the docker image, docker-compose mounts the host's config at
+    /data/claude-projects and sets CCUSAGE_PROJECTS_DIR explicitly. For
+    terminal installs (pip / pipx / from-source), fall back to the user's
+    real ~/.claude on disk.
+    """
+    if Path("/data/claude-projects").is_dir():
+        return "/data/claude-projects"
+    return os.path.expanduser("~/.claude")
+
+
 def load_config_from_env(env: Mapping[str, str]) -> AppConfig:
+    claude_dir = env.get("CCUSAGE_PROJECTS_DIR") or _default_claude_dir()
     return AppConfig(
         mqtt_host=_required(env, "MQTT_HOST"),
         mqtt_port=int(env.get("MQTT_PORT", "1883")),
@@ -71,11 +87,11 @@ def load_config_from_env(env: Mapping[str, str]) -> AppConfig:
         account_name=env.get("ACCOUNT_NAME") or None,
         claude_credentials_path=env.get(
             "CLAUDE_CREDENTIALS_PATH",
-            "/data/claude-projects/.credentials.json",
+            os.path.join(claude_dir, ".credentials.json"),
         ),
         anthropic_api_base=env.get("ANTHROPIC_API_BASE", "https://api.anthropic.com"),
         probe_model=env.get("PROBE_MODEL", "claude-haiku-4-5-20251001"),
-        ccusage_projects_dir=env.get("CCUSAGE_PROJECTS_DIR", "/data/claude-projects"),
+        ccusage_projects_dir=claude_dir,
         header_poll_sec=float(env.get("HEADER_POLL_SEC", "60")),
         ccusage_poll_sec=float(env.get("CCUSAGE_POLL_SEC", "30")),
         burn_rate_window_sec=float(env.get("BURN_RATE_WINDOW_SEC", "240")),
@@ -86,6 +102,31 @@ def load_config_from_env(env: Mapping[str, str]) -> AppConfig:
     )
 
 
+def load_env_file(path: str | os.PathLike) -> int:
+    """Read KEY=VALUE lines from path into os.environ.
+
+    Tiny dotenv-style parser — handles comments and blank lines, strips
+    quotes around values. Doesn't overwrite existing env vars (so explicit
+    `MQTT_HOST=foo python -m ccusage_mqtt` beats whatever is in .env).
+    Returns the count of vars set. No-ops if path doesn't exist.
+    """
+    p = Path(path)
+    if not p.is_file():
+        return 0
+    count = 0
+    for raw in p.read_text().splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, val = line.partition("=")
+        key = key.strip()
+        val = val.strip().strip('"').strip("'")
+        if key and key not in os.environ:
+            os.environ[key] = val
+            count += 1
+    return count
+
+
 def _setup_logging(level: str) -> None:
     logging.basicConfig(
         level=getattr(logging, level.upper(), logging.INFO),
@@ -94,10 +135,30 @@ def _setup_logging(level: str) -> None:
     )
 
 
-def main() -> int:
+def _parse_argv(argv: list[str] | None = None) -> argparse.Namespace:
+    p = argparse.ArgumentParser(
+        prog="ccusage-mqtt",
+        description="Publish Claude Code usage telemetry to MQTT for Home Assistant.",
+    )
+    p.add_argument(
+        "--env-file",
+        type=Path,
+        default=Path(".env"),
+        help="Load environment variables from this file before reading config "
+             "(default: ./.env in the current working directory; silently skipped "
+             "if it doesn't exist). Existing environment variables take precedence.",
+    )
+    return p.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = _parse_argv(argv)
+    n_loaded = load_env_file(args.env_file)
     cfg = load_config_from_env(os.environ)
     _setup_logging(cfg.log_level)
     log = logging.getLogger("ccusage_mqtt")
+    if n_loaded:
+        log.info("loaded %d vars from %s", n_loaded, args.env_file)
     log.info("starting ccusage-mqtt (host=%s port=%s)", cfg.mqtt_host, cfg.mqtt_port)
 
     discovery = build_discovery_configs(

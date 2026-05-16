@@ -23,6 +23,9 @@ dependencies = [
 Homepage = "https://github.com/george-vice/ccusage-mqtt"
 Issues = "https://github.com/george-vice/ccusage-mqtt/issues"
 
+[project.scripts]
+ccusage-mqtt = "ccusage_mqtt.__main__:main"
+
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0",

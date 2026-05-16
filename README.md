@@ -15,13 +15,75 @@ design.
 
 ## Prerequisites
 
-You'll need a host with:
+- A working Claude Code installation on the host (the publisher reads
+  `~/.claude/.credentials.json` for the OAuth token — no separate
+  Anthropic API key is required)
+- Node.js + npm if installing on-host (the publisher shells out to
+  [`ccusage`](https://github.com/ryoppippi/ccusage) for token/$ totals).
+  Not needed if you use the Docker path — the image installs it.
+- Python ≥ 3.12 if installing on-host
+- A Home Assistant instance with an MQTT broker reachable on your LAN.
+  See **Home Assistant MQTT setup** below if you don't have one yet.
 
-- Docker + Docker Compose
-- An active Claude Code installation on the same host (the publisher reads
-  `~/.claude/.credentials.json` for the OAuth token — no separate Anthropic
-  API key is required)
-- A Home Assistant instance with MQTT — see below
+## Install
+
+### Option A: Docker (recommended)
+
+Self-contained. Bundles Node + `ccusage` + Python in one image.
+
+```bash
+git clone https://github.com/george-vice/ccusage-mqtt.git
+cd ccusage-mqtt
+./setup.sh                  # prompts for MQTT broker + per-instance identity
+docker compose up -d --build
+docker compose logs -f
+```
+
+### Option B: From source (no Docker)
+
+Runs as a regular Python process. Use this if you don't want Docker, or
+want to manage it under `systemd`/`launchd`/etc.
+
+```bash
+# 1. Install ccusage (Node) globally — the publisher shells out to it
+npm install -g ccusage
+
+# 2. Install the publisher
+git clone https://github.com/george-vice/ccusage-mqtt.git
+cd ccusage-mqtt
+pip install .
+# (or `pipx install .` for isolation)
+
+# 3. Configure
+./setup.sh                  # writes ./.env in the repo root
+# (or skip setup.sh and set env vars by hand — MQTT_HOST is the only required one)
+
+# 4. Run
+ccusage-mqtt                # picks up ./.env from the current directory
+# or:
+ccusage-mqtt --env-file /path/to/anywhere/.env
+```
+
+In source mode, defaults resolve to `~/.claude/.credentials.json` and
+`~/.claude/projects/` on disk automatically — no docker bind-mount to
+worry about. To run it as a service, drop something like this into
+`~/.config/systemd/user/ccusage-mqtt.service`:
+
+```ini
+[Unit]
+Description=ccusage-mqtt — Claude Code → MQTT publisher
+After=network-online.target
+
+[Service]
+ExecStart=%h/.local/bin/ccusage-mqtt --env-file %h/.config/ccusage-mqtt/.env
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target
+```
+
+Then `systemctl --user enable --now ccusage-mqtt`.
 
 ## Home Assistant MQTT setup
 
@@ -54,19 +116,10 @@ already have those, set them up first:
 That's the HA side. You'll re-enter the broker hostname and the same
 username/password into `./setup.sh` below.
 
-## Quick start
+After either install path, Home Assistant auto-discovers a `Claude Code Usage`
+device with 14 entities within ~60s under Settings → Devices & Services → MQTT.
 
-```bash
-./setup.sh                  # prompts for MQTT broker host / port / user / pass
-docker compose up -d --build
-docker compose logs -f
-```
-
-Within ~60s, Home Assistant should auto-discover a `Claude Code Usage`
-device with 14 entities under Settings → Devices & Services → MQTT.
-
-Re-run `./setup.sh` any time to reconfigure. Hand-editing `.env` works too:
-`cp .env.example .env && $EDITOR .env`.
+Re-run `./setup.sh` any time to reconfigure, or hand-edit `.env` directly.
 
 ## Running multiple Claude accounts
 
