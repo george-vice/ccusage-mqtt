@@ -1,0 +1,27 @@
+services:
+  ccusage-mqtt:
+    build: .
+    image: ccusage-mqtt:local
+    # Parameterized so two instances on the same host don't collide on container
+    # name. setup.sh writes CONTAINER_NAME from the account slug; bare clones
+    # default to plain "ccusage-mqtt".
+    container_name: ${CONTAINER_NAME:-ccusage-mqtt}
+    restart: unless-stopped
+    env_file: .env
+    # Run as the host user so the read-only ~/.claude bind-mount (mode 0600)
+    # is readable from inside the container. setup.sh records id -u / id -g
+    # as USER_UID / USER_GID in .env.
+    user: "${USER_UID:-1000}:${USER_GID:-1000}"
+    volumes:
+      # CLAUDE_CONFIG_HOST_PATH selects which Claude Code account's credentials
+      # this instance reads. setup.sh writes it; defaults to ~/.claude for
+      # single-account installs. For a second instance against a different
+      # Claude login, run e.g. `CLAUDE_CONFIG_DIR=~/.claude-work claude login`
+      # on the host first, then point this instance's setup.sh at ~/.claude-work.
+      - ${CLAUDE_CONFIG_HOST_PATH:-${HOME}/.claude}:/data/claude-projects:ro
+    network_mode: host
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
