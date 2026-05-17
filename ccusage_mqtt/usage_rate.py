@@ -77,3 +77,27 @@ def classify_mood(
     if rate_pct_per_min < active_below:
         return "active"
     return "heavy"
+
+
+def classify_mood_tokens(
+    tokens_per_hour: int | float | None,
+    *,
+    idle_below: float,
+    normal_below: float,
+    active_below: float,
+) -> Mood:
+    """Same shape as classify_mood, but input is tokens/hour.
+
+    Used on Enterprise plans where session_pct is stuck at 0 (overage
+    utilization) until the user dips into their overage allowance. The
+    bucket boundaries follow the same `<` semantics as classify_mood.
+    """
+    if tokens_per_hour is None:
+        return "idle"
+    if tokens_per_hour < idle_below:
+        return "idle"
+    if tokens_per_hour < normal_below:
+        return "normal"
+    if tokens_per_hour < active_below:
+        return "active"
+    return "heavy"

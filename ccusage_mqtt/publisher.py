@@ -198,6 +198,9 @@ class LoopConfig:
     idle_below: float
     normal_below: float
     active_below: float
+    tokens_idle_below: float = 500.0
+    tokens_normal_below: float = 2500.0
+    tokens_active_below: float = 10000.0
     account_name: str | None = None
 
 
@@ -236,6 +239,9 @@ class PublisherLoop:
                 idle_below=self._cfg.idle_below,
                 normal_below=self._cfg.normal_below,
                 active_below=self._cfg.active_below,
+                tokens_idle_below=self._cfg.tokens_idle_below,
+                tokens_normal_below=self._cfg.tokens_normal_below,
+                tokens_active_below=self._cfg.tokens_active_below,
             ),
         )
         self._mqtt.publish_state(

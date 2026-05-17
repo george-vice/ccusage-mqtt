@@ -116,3 +116,37 @@ def test_malformed_reset_returns_none():
     snap = parse_ratelimit_headers(headers, now=_NOW)
     assert snap.session_pct == 30.0
     assert snap.session_reset_minutes is None
+
+
+def test_is_enterprise_true_when_only_overage_headers_present():
+    headers = {
+        "anthropic-ratelimit-unified-status": "allowed",
+        "anthropic-ratelimit-unified-overage-utilization": "0.0",
+        "anthropic-ratelimit-unified-overage-reset": str(_NOW_TS + 86400),
+    }
+    snap = parse_ratelimit_headers(headers, now=_NOW)
+    assert snap.is_enterprise is True
+
+
+def test_is_enterprise_false_for_pro_5h_headers():
+    headers = {
+        "anthropic-ratelimit-unified-5h-utilization": "0.42",
+        "anthropic-ratelimit-unified-7d-utilization": "0.18",
+    }
+    snap = parse_ratelimit_headers(headers, now=_NOW)
+    assert snap.is_enterprise is False
+
+
+def test_is_enterprise_false_when_both_schemas_present():
+    # If 5h-utilization exists, treat as Pro/Max even if overage headers also appear.
+    headers = {
+        "anthropic-ratelimit-unified-5h-utilization": "0.30",
+        "anthropic-ratelimit-unified-overage-utilization": "0.0",
+    }
+    snap = parse_ratelimit_headers(headers, now=_NOW)
+    assert snap.is_enterprise is False
+
+
+def test_is_enterprise_false_when_no_headers_at_all():
+    snap = parse_ratelimit_headers({}, now=_NOW)
+    assert snap.is_enterprise is False

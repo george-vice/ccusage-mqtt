@@ -51,6 +51,9 @@ class AppConfig:
     mood_idle_below: float
     mood_normal_below: float
     mood_active_below: float
+    mood_tokens_idle_below: float
+    mood_tokens_normal_below: float
+    mood_tokens_active_below: float
 
     log_level: str
 
@@ -100,6 +103,9 @@ def load_config_from_env(env: Mapping[str, str]) -> AppConfig:
         mood_idle_below=float(env.get("MOOD_IDLE_BELOW", "0.10")),
         mood_normal_below=float(env.get("MOOD_NORMAL_BELOW", "0.20")),
         mood_active_below=float(env.get("MOOD_ACTIVE_BELOW", "0.33")),
+        mood_tokens_idle_below=float(env.get("MOOD_TOKENS_IDLE_BELOW", "500")),
+        mood_tokens_normal_below=float(env.get("MOOD_TOKENS_NORMAL_BELOW", "2500")),
+        mood_tokens_active_below=float(env.get("MOOD_TOKENS_ACTIVE_BELOW", "10000")),
         log_level=env.get("LOG_LEVEL", "INFO"),
     )
 
@@ -245,6 +251,9 @@ def main(argv: list[str] | None = None) -> int:
             idle_below=cfg.mood_idle_below,
             normal_below=cfg.mood_normal_below,
             active_below=cfg.mood_active_below,
+            tokens_idle_below=cfg.mood_tokens_idle_below,
+            tokens_normal_below=cfg.mood_tokens_normal_below,
+            tokens_active_below=cfg.mood_tokens_active_below,
             account_name=cfg.account_name,
         ),
         mqtt=mqtt_client,
