@@ -11,8 +11,7 @@ sensor (idle / normal / active / heavy), time-to-limit, tokens & spend so
 far, hourly token and spend rates, reset countdowns for both windows, and
 an `Account` label sensor.
 
-See `docs/superpowers/specs/2026-05-16-ccusage-mqtt-design.md` for the full
-design.
+See [`docs/design.md`](docs/design.md) for the full design.
 
 ## Prerequisites
 
