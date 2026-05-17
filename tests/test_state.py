@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 
 from ccusage_mqtt.anthropic_client import RateLimitSnapshot
 from ccusage_mqtt.ccusage import BlockSnapshot
-from ccusage_mqtt.state import State
+from ccusage_mqtt.state import DerivationConfig, State
 
 
 def test_state_starts_with_all_unknown():
@@ -30,6 +30,18 @@ def test_apply_rate_limits_writes_six_fields():
     assert s.weekly_pct == 18.0
     assert s.weekly_reset_minutes == 2000
     assert s.weekly_status == "allowed"
+    # is_enterprise defaults to False on the snapshot dataclass
+    assert s.is_enterprise is False
+
+
+def test_apply_rate_limits_propagates_is_enterprise():
+    s = State()
+    s.apply_rate_limits(RateLimitSnapshot(
+        session_pct=0.0, session_reset_minutes=20000, session_status="allowed",
+        weekly_pct=None, weekly_reset_minutes=None, weekly_status="unknown",
+        is_enterprise=True,
+    ))
+    assert s.is_enterprise is True
 
 
 def test_apply_block_writes_token_and_cost_fields():
@@ -110,6 +122,51 @@ def test_recompute_derived_handles_missing_session_pct():
     s.recompute_derived(burn_rate=0.25)
     assert s.time_to_limit_minutes is None
     assert s.block_elapsed_pct is None
+
+
+def test_enterprise_mood_uses_tokens_per_hour_not_burn_rate():
+    """On Enterprise, session_pct is overage-utilization (0 until you blow
+    past base allocation), so burn_rate is always 0. Mood must come from
+    tokens/hour instead so the user sees real activity."""
+    s = State()
+    s.is_enterprise = True
+    s.session_pct = 0.0
+    s.tokens_used = 5000
+    s.block_elapsed_minutes = 60.0  # 1h elapsed → tokens_per_hour = 5000
+    s.recompute_derived(
+        burn_rate=0.0,
+        cfg=DerivationConfig(
+            tokens_idle_below=500,
+            tokens_normal_below=2500,
+            tokens_active_below=10000,
+        ),
+    )
+    assert s.tokens_per_hour == 5000
+    # 5000 falls in [2500, 10000) → active, even though burn_rate=0 would mean idle.
+    assert s.mood == "active"
+
+
+def test_enterprise_mood_is_idle_during_warmup_when_tokens_per_hour_unknown():
+    s = State()
+    s.is_enterprise = True
+    s.session_pct = 0.0
+    s.tokens_used = 100
+    s.block_elapsed_minutes = 0.1  # too early — tokens_per_hour will be None
+    s.recompute_derived(burn_rate=None)
+    assert s.tokens_per_hour is None
+    assert s.mood == "idle"
+
+
+def test_pro_mood_still_uses_burn_rate_with_tokens_present():
+    """Sanity-check: Pro/Max should ignore tokens_per_hour for mood."""
+    s = State()
+    s.is_enterprise = False
+    s.session_pct = 50.0
+    s.tokens_used = 50_000  # heavy by token thresholds
+    s.block_elapsed_minutes = 60.0
+    s.recompute_derived(burn_rate=0.05)  # idle by %/min thresholds
+    assert s.tokens_per_hour == 50_000
+    assert s.mood == "idle"  # honors burn_rate path, not tokens
 
 
 def test_to_mqtt_payloads_returns_all_15_sensors():

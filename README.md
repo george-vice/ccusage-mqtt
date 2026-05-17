@@ -5,10 +5,11 @@ auto-discovery. Mirrors the
 [Clawdmeter](https://github.com/HermannBjorgvin/Clawdmeter) ESP32 firmware's
 telemetry surface so the same `mood` / burn-rate thresholds apply.
 
-Once running, your Home Assistant gains a `Claude Code Usage` device with 14
+Once running, your Home Assistant gains a `Claude Code Usage` device with 15
 sensors — current 5h and 7d utilisation %, burn rate %/min, an enum `mood`
 sensor (idle / normal / active / heavy), time-to-limit, tokens & spend so
-far, hourly token and spend rates, and reset countdowns for both windows.
+far, hourly token and spend rates, reset countdowns for both windows, and
+an `Account` label sensor.
 
 See `docs/superpowers/specs/2026-05-16-ccusage-mqtt-design.md` for the full
 design.
@@ -27,22 +28,9 @@ design.
 
 ## Install
 
-### Option A: Docker (recommended)
+### Option A: From source (recommended)
 
-Self-contained. Bundles Node + `ccusage` + Python in one image.
-
-```bash
-git clone https://github.com/george-vice/ccusage-mqtt.git
-cd ccusage-mqtt
-./setup.sh                  # prompts for MQTT broker + per-instance identity
-docker compose up -d --build
-docker compose logs -f
-```
-
-### Option B: From source (no Docker)
-
-Runs as a regular Python process. Use this if you don't want Docker, or
-want to manage it under `systemd`/`launchd`/etc.
+Runs as a regular Python process — manage it under `systemd`/`launchd`/etc.
 
 ```bash
 # 1. Install ccusage (Node) globally — the publisher shells out to it
@@ -51,8 +39,8 @@ npm install -g ccusage
 # 2. Install the publisher
 git clone https://github.com/george-vice/ccusage-mqtt.git
 cd ccusage-mqtt
-pip install .
-# (or `pipx install .` for isolation)
+pipx install .
+# (or `pip install .`)
 
 # 3. Configure
 ./setup.sh                  # writes ./.env in the repo root
@@ -64,9 +52,9 @@ ccusage-mqtt                # picks up ./.env from the current directory
 ccusage-mqtt --env-file /path/to/anywhere/.env
 ```
 
-In source mode, defaults resolve to `~/.claude/.credentials.json` and
-`~/.claude/projects/` on disk automatically — no docker bind-mount to
-worry about. To run it as a service, drop something like this into
+Defaults resolve to `~/.claude/.credentials.json` and `~/.claude/projects/`
+on disk automatically — no bind-mount to worry about. To run it as a
+service, drop something like this into
 `~/.config/systemd/user/ccusage-mqtt.service`:
 
 ```ini
@@ -84,6 +72,19 @@ WantedBy=default.target
 ```
 
 Then `systemctl --user enable --now ccusage-mqtt`.
+
+### Option B: Docker
+
+Self-contained — bundles Node + `ccusage` + Python in one image. Use this
+if you'd rather not install Node/Python on the host.
+
+```bash
+git clone https://github.com/george-vice/ccusage-mqtt.git
+cd ccusage-mqtt
+./setup.sh                  # prompts for MQTT broker + per-instance identity
+docker compose up -d --build
+docker compose logs -f
+```
 
 ## Home Assistant MQTT setup
 
@@ -111,7 +112,7 @@ already have those, set them up first:
      other add-ons but not from external hosts.
    - Username / password: the user from step 2.
    - **MQTT auto-discovery should be enabled by default.** This is what makes
-     the 14 sensors appear automatically when `ccusage-mqtt` starts publishing.
+     the 15 sensors appear automatically when `ccusage-mqtt` starts publishing.
 
 That's the HA side. You'll re-enter the broker hostname and the same
 username/password into `./setup.sh` below.
@@ -125,7 +126,7 @@ Re-run `./setup.sh` any time to reconfigure, or hand-edit `.env` directly.
 
 To track two Claude accounts (e.g. work + personal) from the same host, create
 a separate Claude Code config directory for each account, then run one
-`ccusage-mqtt` container per directory. Each appears as its own device in
+`ccusage-mqtt` instance per directory. Each appears as its own device in
 Home Assistant.
 
 ```bash
@@ -143,14 +144,15 @@ cd ~/code/ccusage-mqtt-work
 #   HA device name:               Claude Code (Work)
 #   Account label:                work
 #   Claude Code config dir:       /home/you/.claude-work
-docker compose up -d --build
 
 cd ~/code/ccusage-mqtt-personal
 ./setup.sh
 #   HA device name:               Claude Code (Personal)
 #   Account label:                personal
 #   Claude Code config dir:       /home/you/.claude-personal
-docker compose up -d --build
+
+# 4. Run each one (source install: `ccusage-mqtt` from each dir;
+#    docker: `docker compose up -d --build` from each dir)
 ```
 
 When `ACCOUNT_NAME` is set, `setup.sh` automatically suffixes
@@ -167,12 +169,13 @@ from `.env.example`. Notable optional knobs:
 
 | Var | Default | Purpose |
 |---|---|---|
-| `CLAUDE_CREDENTIALS_PATH` | `/data/claude-projects/.credentials.json` | Where the container finds Claude Code's OAuth token. The default works with the `docker-compose.yml` bind-mount; only change if you mount `~/.claude` somewhere else. |
+| `CLAUDE_CREDENTIALS_PATH` | `~/.claude/.credentials.json` (source) / `/data/claude-projects/.credentials.json` (Docker) | Where the publisher finds Claude Code's OAuth token. Resolves automatically based on environment; only set this if your Claude Code config lives somewhere unusual. |
 | `PROBE_MODEL` | `claude-haiku-4-5-20251001` | Model used for the ratelimit-probe API call. Cheapest current Anthropic model. |
 | `HEADER_POLL_SEC` | `60` | How often to refresh the 5h / 7d utilisation from Anthropic |
 | `CCUSAGE_POLL_SEC` | `30` | How often to refresh token / cost data from `ccusage` |
 | `BURN_RATE_WINDOW_SEC` | `240` | Ring-buffer span for burn-rate smoothing. 240 matches the Clawdmeter firmware. |
-| `MOOD_*_BELOW` | `0.10 / 0.20 / 0.33` | Mood threshold %/min boundaries. Defaults match the Clawdmeter firmware. |
+| `MOOD_*_BELOW` | `0.10 / 0.20 / 0.33` | Mood threshold %/min boundaries (Pro/Max only). Defaults match the Clawdmeter firmware. |
+| `MOOD_TOKENS_*_BELOW` | `500 / 2500 / 10000` | Mood threshold tokens/hour boundaries — used on Enterprise plans where session_pct is overage-utilization (stuck at 0 until you blow past base allocation). |
 
 ## How it works
 
@@ -200,10 +203,14 @@ HA and keeps publishing token/$ sensors from `ccusage`, self-healing on the
 next poll once you re-login.
 
 Both Claude **Pro/Max** and **Enterprise** plans are supported. Enterprise
-returns a different ratelimit header schema (no 7-day window — overage
+returns a different ratelimit header schema (no 5h or 7d window — overage
 allowance instead); the parser handles both. Enterprise users get the
 `session_*` sensors populated from overage data; `weekly_*` sensors stay
-`null` (correct, not a bug).
+`null` (correct, not a bug). Because overage-utilization is 0% until you
+blow past your base allocation, burn-rate is a dead signal on Enterprise —
+so `mood` instead classifies off `tokens_per_hour` (from `ccusage`) using
+the `MOOD_TOKENS_*_BELOW` thresholds. On Pro/Max, mood continues to use
+the %/min burn rate exactly as the Clawdmeter firmware does.
 
 ## Troubleshooting
 

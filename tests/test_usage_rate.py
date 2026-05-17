@@ -78,7 +78,7 @@ def test_detect_reset_false_when_empty():
 
 
 import pytest
-from ccusage_mqtt.usage_rate import classify_mood, Mood
+from ccusage_mqtt.usage_rate import classify_mood, classify_mood_tokens, Mood
 
 
 @pytest.mark.parametrize("rate,expected", [
@@ -100,6 +100,27 @@ def test_classify_mood(rate: float | None, expected: str):
         idle_below=0.10,
         normal_below=0.20,
         active_below=0.33,
+    )
+    assert mood == expected
+
+
+@pytest.mark.parametrize("tokens_per_hour,expected", [
+    (None,    "idle"),    # no data yet — warm-up
+    (0,       "idle"),
+    (499,     "idle"),
+    (500,     "normal"),  # at threshold → upper bucket
+    (1500,    "normal"),
+    (2500,    "active"),  # at threshold
+    (5000,    "active"),
+    (10000,   "heavy"),   # at threshold
+    (50000,   "heavy"),
+])
+def test_classify_mood_tokens(tokens_per_hour: int | None, expected: str):
+    mood = classify_mood_tokens(
+        tokens_per_hour,
+        idle_below=500,
+        normal_below=2500,
+        active_below=10000,
     )
     assert mood == expected
 

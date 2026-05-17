@@ -22,6 +22,9 @@ def test_load_config_from_env_full():
         "MOOD_IDLE_BELOW": "0.10",
         "MOOD_NORMAL_BELOW": "0.20",
         "MOOD_ACTIVE_BELOW": "0.33",
+        "MOOD_TOKENS_IDLE_BELOW": "1000",
+        "MOOD_TOKENS_NORMAL_BELOW": "5000",
+        "MOOD_TOKENS_ACTIVE_BELOW": "20000",
         "LOG_LEVEL": "DEBUG",
     }
     cfg = load_config_from_env(env)
@@ -31,6 +34,9 @@ def test_load_config_from_env_full():
     assert cfg.claude_credentials_path == "/custom/creds.json"
     assert cfg.header_poll_sec == 60.0
     assert cfg.mood_active_below == 0.33
+    assert cfg.mood_tokens_idle_below == 1000.0
+    assert cfg.mood_tokens_normal_below == 5000.0
+    assert cfg.mood_tokens_active_below == 20000.0
     assert cfg.log_level == "DEBUG"
 
 
@@ -50,6 +56,9 @@ def test_load_config_uses_defaults():
     assert cfg.ccusage_poll_sec == 30.0
     assert cfg.burn_rate_window_sec == 240.0
     assert cfg.mood_idle_below == 0.10
+    assert cfg.mood_tokens_idle_below == 500.0
+    assert cfg.mood_tokens_normal_below == 2500.0
+    assert cfg.mood_tokens_active_below == 10000.0
     assert cfg.log_level == "INFO"
 
 

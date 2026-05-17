@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 
 from ccusage_mqtt.anthropic_client import RateLimitSnapshot, Status
 from ccusage_mqtt.ccusage import BlockSnapshot
-from ccusage_mqtt.usage_rate import Mood, classify_mood
+from ccusage_mqtt.usage_rate import Mood, classify_mood, classify_mood_tokens
 
 
 BLOCK_WINDOW_MINUTES = 300.0  # Anthropic 5h window
@@ -16,6 +16,14 @@ class DerivationConfig:
     idle_below: float = 0.10
     normal_below: float = 0.20
     active_below: float = 0.33
+    # Token-based mood thresholds — used on Enterprise plans where session_pct
+    # is overage-utilization (stuck at 0 until you blow past your base
+    # allocation), making the %/min burn-rate path useless as an activity
+    # signal. Defaults aim to put a moderately busy Claude Code session into
+    # "active" without too much fiddling.
+    tokens_idle_below: float = 500.0
+    tokens_normal_below: float = 2500.0
+    tokens_active_below: float = 10000.0
 
 
 SENSOR_FIELDS: tuple[str, ...] = (
@@ -57,6 +65,7 @@ class State:
 
     # Internal — not published.
     block_elapsed_minutes: float | None = field(default=None, repr=False)
+    is_enterprise: bool = field(default=False, repr=False)
 
     def apply_rate_limits(self, snap: RateLimitSnapshot) -> None:
         self.session_pct = snap.session_pct
@@ -65,6 +74,7 @@ class State:
         self.weekly_pct = snap.weekly_pct
         self.weekly_reset_minutes = snap.weekly_reset_minutes
         self.weekly_status = snap.weekly_status
+        self.is_enterprise = snap.is_enterprise
 
     def apply_block(self, snap: BlockSnapshot) -> None:
         self.tokens_used = snap.tokens_used
@@ -85,12 +95,6 @@ class State:
     ) -> None:
         cfg = cfg or DerivationConfig()
         self.burn_rate_pct_per_min = burn_rate
-        self.mood = classify_mood(
-            burn_rate,
-            idle_below=cfg.idle_below,
-            normal_below=cfg.normal_below,
-            active_below=cfg.active_below,
-        )
 
         if burn_rate is not None and burn_rate > 0.0 and self.session_pct is not None:
             self.time_to_limit_minutes = round((100.0 - self.session_pct) / burn_rate, 1)
@@ -121,6 +125,26 @@ class State:
         else:
             self.tokens_per_hour = None
             self.spend_per_hour_usd = None
+
+        # Classify mood last so the Enterprise branch can read tokens_per_hour
+        # that was just computed above. On Enterprise, session_pct is overage
+        # utilization (0% until you blow past base allocation) — burn-rate of
+        # a flatline is 0, mood would be stuck at "idle". Use tokens/hour as
+        # the activity signal instead.
+        if self.is_enterprise:
+            self.mood = classify_mood_tokens(
+                self.tokens_per_hour,
+                idle_below=cfg.tokens_idle_below,
+                normal_below=cfg.tokens_normal_below,
+                active_below=cfg.tokens_active_below,
+            )
+        else:
+            self.mood = classify_mood(
+                burn_rate,
+                idle_below=cfg.idle_below,
+                normal_below=cfg.normal_below,
+                active_below=cfg.active_below,
+            )
 
     def to_mqtt_payloads(self, *, account: str | None = None) -> dict[str, dict]:
         # Account always appears so single-instance users can see / filter on it

@@ -23,6 +23,12 @@ class RateLimitSnapshot:
     weekly_pct: float | None
     weekly_reset_minutes: int | None
     weekly_status: Status
+    # True when the response uses the Enterprise header schema (no 5h/7d window,
+    # only overage-* fields). The publisher uses this to switch mood
+    # classification from burn-rate to tokens/hour, since overage-utilization is
+    # 0 for users still inside their base allocation — making burn-rate useless
+    # as an activity signal on Enterprise.
+    is_enterprise: bool = False
 
 
 def _get_ci(headers: Mapping[str, str], name: str) -> str | None:
@@ -88,6 +94,8 @@ def parse_ratelimit_headers(
     # session_* maps to the binding 5h/burst-style limit on Pro/Max accounts,
     # and to the overage-billing limit on Enterprise accounts (which have no
     # 5h window). weekly_* is Pro/Max-only; Enterprise leaves it null.
+    has_5h = _get_ci(headers, "anthropic-ratelimit-unified-5h-utilization") is not None
+    has_overage = _get_ci(headers, "anthropic-ratelimit-unified-overage-utilization") is not None
     return RateLimitSnapshot(
         session_pct=_parse_pct(
             headers,
@@ -112,6 +120,7 @@ def parse_ratelimit_headers(
             headers, "anthropic-ratelimit-unified-7d-reset", now=now,
         ),
         weekly_status=_parse_status(headers, "anthropic-ratelimit-unified-7d-status"),
+        is_enterprise=has_overage and not has_5h,
     )
 
 
