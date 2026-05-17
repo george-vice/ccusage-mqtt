@@ -1014,7 +1014,7 @@
       <div class="sensors">
         <div class="sensor-col">
           <div class="sensor-col-head"><h4>// anthropic api</h4><span class="ct">06 · 60s refresh</span></div>
-          <p class="desc">From the <code style="font-family: var(--mono); font-size: 11px;">anthropic-ratelimit-unified-*</code> response headers on every probe.</p>
+          <p class="desc">From the <code style="font-family: var(--mono); font-size: 11px;">anthropic-ratelimit-unified-*</code> response headers on every probe. Pro/Max returns <code style="font-family: var(--mono); font-size: 11px;">5h-*</code> + <code style="font-family: var(--mono); font-size: 11px;">7d-*</code>; Enterprise returns <code style="font-family: var(--mono); font-size: 11px;">overage-*</code> instead — the parser handles both schemas transparently.</p>
           <div class="sensor-list">
             <div class="sensor-row"><div><span class="name">session_pct</span></div><span class="unit">%</span><div class="desc-mini">Current 5-hour rate-limit window utilization. On Enterprise, overage-allowance utilization instead.</div></div>
             <div class="sensor-row"><div><span class="name">session_reset_minutes</span></div><span class="unit">min</span><div class="desc-mini">How long until the current window resets. Counts down in real time.</div></div>
