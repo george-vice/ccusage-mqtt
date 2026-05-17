@@ -874,7 +874,7 @@
           </p>
           <div class="install-snip">
             <span class="prompt">$</span>
-            <span class="cmd">pipx install ccusage-mqtt &amp;&amp; ./setup.sh</span>
+            <span class="cmd">git clone https://github.com/george-vice/ccusage-mqtt &amp;&amp; cd ccusage-mqtt &amp;&amp; pipx install . &amp;&amp; ./setup.sh</span>
             <span class="hint">⌘C TO COPY</span>
           </div>
           <div class="cta-row">
@@ -1007,7 +1007,7 @@
       <div class="section-head">
         <div class="left">
           <h2 class="section-title">15 sensors, three sources, <span class="accent">one device.</span></h2>
-          <p class="section-sub">Entity IDs follow <code style="font-family: var(--mono); background: var(--surface); padding: 1px 6px; border-radius: 4px; font-size: 12px; border: 1px solid var(--border-2);">sensor.&lt;base_topic&gt;_&lt;sensor_id&gt;</code>. Set <code style="font-family: var(--mono); background: var(--surface); padding: 1px 6px; border-radius: 4px; font-size: 12px; border: 1px solid var(--border-2);">MQTT_BASE_TOPIC</code> in setup and you're done.</p>
+          <p class="section-sub">MQTT topics use the sensor IDs below (e.g. <code style="font-family: var(--mono); background: var(--surface); padding: 1px 6px; border-radius: 4px; font-size: 12px; border: 1px solid var(--border-2);">claude_code_usage/session_pct/state</code>). HA derives entity IDs from the friendly name, so <code style="font-family: var(--mono); background: var(--surface); padding: 1px 6px; border-radius: 4px; font-size: 12px; border: 1px solid var(--border-2);">session_pct</code> becomes <code style="font-family: var(--mono); background: var(--surface); padding: 1px 6px; border-radius: 4px; font-size: 12px; border: 1px solid var(--border-2);">sensor.claude_code_usage_session</code>. The included YAML uses those entity IDs directly.</p>
         </div>
         <div class="section-meta"><span class="bar"></span>02 / sensors</div>
       </div>
@@ -1045,7 +1045,7 @@
           <p class="desc">Computed from the inputs above on every publish cycle.</p>
           <div class="sensor-list">
             <div class="sensor-row"><div><span class="name">burn_rate_pct_per_min</span></div><span class="unit derived">%/min</span><div class="desc-mini">Rate of change of session_pct, smoothed over a 4-minute ring buffer.</div></div>
-            <div class="sensor-row"><div><span class="name">mood</span></div><span class="unit enum">enum</span><div class="desc-mini">idle / normal / active / heavy bucket borrowed verbatim from Clawdmeter.</div></div>
+            <div class="sensor-row"><div><span class="name">mood</span></div><span class="unit enum">enum</span><div class="desc-mini">idle / normal / active / heavy bucket. Pro/Max uses the burn-rate %/min thresholds from Clawdmeter; Enterprise falls back to tokens/hour thresholds since overage_utilization stays 0 until you exceed base allocation.</div></div>
             <div class="sensor-row"><div><span class="name">time_to_limit_minutes</span></div><span class="unit derived">min</span><div class="desc-mini">Projected minutes until session_pct reaches 100% at the current burn rate.</div></div>
             <div class="sensor-row"><div><span class="name">block_elapsed_pct</span></div><span class="unit derived">%</span><div class="desc-mini">How far through the current 5h block you are, time-wise.</div></div>
             <div class="sensor-row"><div><span class="name">tokens_per_hour</span></div><span class="unit derived">tokens/h</span><div class="desc-mini">Average token consumption rate so far in the current block.</div></div>
@@ -1055,8 +1055,8 @@
 
         <div class="thresh">
           <div>
-            <h4>Mood thresholds</h4>
-            <p>Borrowed verbatim from the Clawdmeter firmware so the two agree if you run both. Burn rate is %-of-window per minute.</p>
+            <h4>Mood thresholds (Pro/Max)</h4>
+            <p>Borrowed verbatim from the Clawdmeter firmware so the two agree if you run both. Burn rate is %-of-window per minute. Enterprise plans don't expose 5h/7d utilization, so mood falls back to tokens/hour thresholds — default boundaries 500 · 2 500 · 10 000.</p>
           </div>
           <div class="thresh-tbl">
             <div class="thresh-cell idle"><div class="rate">&lt; 0.10</div><div class="name">idle</div></div>
@@ -1113,7 +1113,7 @@
           <ol>
             <li><b>Add the unit.</b> Copy <code>ccusage-mqtt.service</code> from the README to <code>~/.config/systemd/user/</code>.</li>
             <li><b>Enable + start.</b> <code>systemctl --user enable --now ccusage-mqtt</code>.</li>
-            <li><b>Paste the YAML.</b> Open HA → Raw config editor → drop in the snippet from the dashboard page.</li>
+            <li><b>Paste the YAML.</b> Open HA → Raw configuration editor → drop in the snippet from the dashboard section below.</li>
             <li><b>Done.</b> Sensors auto-discover within seconds and the dashboard fills in.</li>
           </ol>
           <div class="req-row">
@@ -1131,7 +1131,7 @@
     <section class="section container" id="dashboard">
       <div class="section-head">
         <div class="left">
-          <h2 class="section-title">A drop-in <span class="accent">Lovelace dashboard.</span></h2>
+          <h2 class="section-title">A drop-in <span class="accent">Home Assistant dashboard.</span></h2>
           <p class="section-sub">Mood at a glance, current 5h / 7d gauges, burn rate, time-to-limit, tokens used + spend — all auto-wired the moment HA discovers the device.</p>
         </div>
         <div class="section-meta"><span class="bar"></span>04 / dashboard</div>
