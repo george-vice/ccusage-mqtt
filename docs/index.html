@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <title>ccusage-mqtt · Claude Code → Home Assistant</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Open-source MQTT publisher that brings Claude Code usage telemetry into Home Assistant. 15 sensors per account, mood classifier, Pro/Max + Enterprise support.">
+  <meta name="description" content="Open-source MQTT publisher that brings Claude Code usage telemetry into Home Assistant. 15 sensors, mood classifier, Lovelace YAML included.">
   <meta property="og:title" content="ccusage-mqtt">
   <meta property="og:description" content="Claude Code usage → Home Assistant. 15 sensors, auto-discovered.">
   <meta property="og:type" content="website">
@@ -742,6 +742,51 @@
 .ccu-root .keylist li::before { content: '▸'; color: var(--accent); font-size: 10px; line-height: 1.5; }
 .ccu-root .keylist li b { color: var(--text); font-weight: 600; }
 
+/* yaml block (lovelace dashboard snippet, full-width under dash-grid) */
+.ccu-root .yaml-block {
+  margin-top: 36px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 30px 60px -30px rgba(0, 0, 0, 0.5);
+}
+.ccu-root .yaml-head {
+  padding: 10px 14px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border-2);
+  display: flex; align-items: center; gap: 10px;
+  font-size: 11px; color: var(--text-3); letter-spacing: 0.04em;
+}
+.ccu-root .yaml-head .lights { display: flex; gap: 6px; margin-right: 6px; }
+.ccu-root .yaml-head .lights span { width: 10px; height: 10px; border-radius: 50%; background: var(--text-4); }
+.ccu-root .yaml-head .lights span:nth-child(1) { background: #ff5f57; opacity: 0.7; }
+.ccu-root .yaml-head .lights span:nth-child(2) { background: #ffbd2e; opacity: 0.7; }
+.ccu-root .yaml-head .lights span:nth-child(3) { background: #28ca42; opacity: 0.7; }
+.ccu-root .yaml-head .title { flex: 1; text-align: center; font-size: 10.5px; }
+.ccu-root .yaml-head .meta { font-size: 10px; color: var(--text-3); letter-spacing: 0.06em; }
+.ccu-root .yaml-body {
+  margin: 0;
+  padding: 18px 20px 22px;
+  background: var(--surface);
+  color: var(--text-2);
+  font-family: var(--mono);
+  font-size: 11.5px;
+  line-height: 1.55;
+  overflow-x: auto;
+  white-space: pre;
+  user-select: text;
+  -webkit-font-smoothing: antialiased;
+}
+.ccu-root .yaml-body code {
+  font-family: inherit;
+  color: inherit;
+  background: transparent;
+  padding: 0;
+  border: 0;
+  white-space: pre;
+}
+
 /* footer */
 .ccu-root footer {
   padding: 60px 0 40px;
@@ -825,7 +870,7 @@
             piped into <span class="accent">Home Assistant</span><span class="arrow"> →</span>
           </h1>
           <p class="sub">
-            <span class="hl">ccusage-mqtt</span> watches Claude Code's local session files and the Anthropic rate-limit headers, then publishes <span class="hl">15 sensors per account</span> to MQTT — auto-discovered into a single Home Assistant device. No API key. Pro/Max + Enterprise.
+            <span class="hl">ccusage-mqtt</span> watches Claude Code's local session files and the Anthropic rate-limit headers, then publishes <span class="hl">15 sensors</span> to MQTT — auto-discovered into a single Home Assistant device with a <span class="hl">pre-built Lovelace dashboard</span>. No API key. Pro/Max + Enterprise.
           </p>
           <div class="install-snip">
             <span class="prompt">$</span>
@@ -935,7 +980,7 @@
         <div class="feat">
           <div class="num">F.02</div>
           <div class="glyph">▤</div>
-          <h3>15 sensors per account</h3>
+          <h3>15 sensors out of the box</h3>
           <p>5h + 7d utilization, burn rate, mood, time-to-limit, tokens, spend. Auto-discovered into one HA device.</p>
           <div class="micro"><span class="ck">✓</span> mqtt discovery built in</div>
         </div>
@@ -948,10 +993,10 @@
         </div>
         <div class="feat">
           <div class="num">F.04</div>
-          <div class="glyph">⌗</div>
-          <h3>Work + personal, host or docker</h3>
-          <p>Two accounts? Two instances — each shows as its own HA device. Runs equally well on bare metal or inside a Docker container alongside Claude Code.</p>
-          <div class="micro"><span class="ck">✓</span> host + docker · pro/max + enterprise</div>
+          <div class="glyph">▦</div>
+          <h3>Lovelace dashboard included</h3>
+          <p>Drop the included YAML into Home Assistant's Raw configuration editor and the sensors light up a card with mood, gauges, burn rate, and tokens — instantly.</p>
+          <div class="micro"><span class="ck">✓</span> ready-to-paste yaml below</div>
         </div>
       </div>
     </section>
@@ -1086,27 +1131,20 @@
     <section class="section container" id="dashboard">
       <div class="section-head">
         <div class="left">
-          <h2 class="section-title">A drop-in Lovelace dashboard, <span class="accent">two columns wide.</span></h2>
-          <p class="section-sub">One column per account. Mood, current 5h / 7d gauges, burn rate, time-to-limit, tokens used + spend, plus a 24h burn-rate history graph.</p>
+          <h2 class="section-title">A drop-in <span class="accent">Lovelace dashboard.</span></h2>
+          <p class="section-sub">Mood at a glance, current 5h / 7d gauges, burn rate, time-to-limit, tokens used + spend — all auto-wired the moment HA discovers the device.</p>
         </div>
         <div class="section-meta"><span class="bar"></span>04 / dashboard</div>
       </div>
       <div class="dash-grid">
         <div>
           <ul class="keylist">
-            <li><span><b>Two side-by-side columns</b> — one per Claude account, work and personal side by side.</span></li>
             <li><span><b>Mood + gauges up top</b> — current state, 5h utilization, 7d utilization (Pro/Max), all visible at a glance.</span></li>
             <li><span><b>Burn-rate timeline</b> — 24h history graph so you can see your hot hours.</span></li>
+            <li><span><b>Pixel-art Clawd</b> — picture-entity card keyed on the mood sensor, sprites from <a href="https://claudepix.vercel.app" target="_blank" rel="noreferrer" style="color:var(--text);border-bottom:1px dotted var(--text-4);text-decoration:none">claudepix</a>.</span></li>
             <li><span><b>Matches Clawdmeter's data shape</b> — if you also run the ESP32 desk dashboard, the two are interchangeable.</span></li>
-            <li><span><b>Bonus pixel-art Clawd</b> — swap glance row for picture-entity card keyed on the mood sensor.</span></li>
+            <li><span><b>Yaml below</b> — paste it into <code style="font-family:var(--mono);background:var(--surface);padding:1px 6px;border-radius:4px;font-size:11px;border:1px solid var(--border-2)">Settings → Dashboards → ⋮ → Raw configuration editor</code> and you're done.</span></li>
           </ul>
-          <div class="cta-row">
-            <a class="cta cta-primary" href="https://ccusagemqtt.wordpress.com/dashboard/">
-              get the yaml
-              <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M3 9L9 3M9 3H4M9 3V8"/></svg>
-            </a>
-            <a class="cta cta-secondary" href="https://claudepix.vercel.app" target="_blank" rel="noreferrer">claudepix.vercel.app</a>
-          </div>
         </div>
         <div class="dash-frame">
           <div class="glow"></div>
@@ -1116,6 +1154,122 @@
           </div>
           <img src="https://ccusagemqtt.wordpress.com/wp-content/uploads/2026/05/screen-capture-on-2026-05-17-at-20-11-41-1.gif" alt="ccusage-mqtt Lovelace dashboard" loading="lazy">
         </div>
+      </div>
+
+      <div class="yaml-block">
+        <div class="yaml-head">
+          <span class="lights"><span></span><span></span><span></span></span>
+          <span class="title">lovelace.yaml — paste into Raw configuration editor</span>
+          <span class="meta">⌘A then ⌘C</span>
+        </div>
+        <pre class="yaml-body"><code>title: CCusage
+views:
+  - title: Usage
+    path: usage
+    type: sections
+    max_columns: 1
+    sections:
+      - type: grid
+        cards:
+          - type: heading
+            heading: Claude Code (Personal)
+            heading_style: title
+            icon: mdi:robot-outline
+          - type: conditional
+            conditions:
+              - condition: state
+                entity: sensor.claude_code_usage_mood
+                state: idle
+            card:
+              type: iframe
+              url: &gt;-
+                https://claudepix.vercel.app/animations/idle_breathe.html?speed=1
+              aspect_ratio: 100%
+              grid_options:
+                columns: 12
+                rows: 4
+          - type: conditional
+            conditions:
+              - condition: state
+                entity: sensor.claude_code_usage_mood
+                state: normal
+            card:
+              type: iframe
+              url: &gt;-
+                https://claudepix.vercel.app/animations/idle_look_around.html?speed=1
+              aspect_ratio: 100%
+              grid_options:
+                columns: 12
+                rows: 4
+          - type: conditional
+            conditions:
+              - condition: state
+                entity: sensor.claude_code_usage_mood
+                state: active
+            card:
+              type: iframe
+              url: https://claudepix.vercel.app/animations/work_coding.html?speed=1
+              aspect_ratio: 100%
+              grid_options:
+                columns: 12
+                rows: 4
+          - type: conditional
+            conditions:
+              - condition: state
+                entity: sensor.claude_code_usage_mood
+                state: heavy
+            card:
+              type: iframe
+              url: https://claudepix.vercel.app/animations/work_think.html?speed=1
+              aspect_ratio: 100%
+              grid_options:
+                columns: 12
+                rows: 4
+          - type: tile
+            entity: sensor.claude_code_usage_account
+            name: Account
+          - type: tile
+            entity: sensor.claude_code_usage_session
+            name: Session %
+          - type: tile
+            entity: sensor.claude_code_usage_weekly
+            name: Weekly %
+          - type: tile
+            entity: sensor.claude_code_usage_mood
+            name: Mood
+          - type: tile
+            entity: sensor.claude_code_usage_burn_rate
+            name: Burn rate
+          - type: tile
+            entity: sensor.claude_code_usage_time_to_limit
+            name: Time to limit
+          - type: tile
+            entity: sensor.claude_code_usage_session_resets_in
+            name: Session resets in
+          - type: tile
+            entity: sensor.claude_code_usage_weekly_resets_in
+            name: Weekly resets in
+          - type: tile
+            entity: sensor.claude_code_usage_session_status
+            name: Session status
+          - type: tile
+            entity: sensor.claude_code_usage_weekly_status
+            name: Weekly status
+          - type: tile
+            entity: sensor.claude_code_usage_block_elapsed
+            name: Block elapsed
+          - type: tile
+            entity: sensor.claude_code_usage_tokens_used
+            name: Tokens used
+          - type: tile
+            entity: sensor.claude_code_usage_tokens_per_hour
+            name: Tokens / hour
+          - type: tile
+            entity: sensor.claude_code_usage_spend_so_far
+            name: Spend so far
+          - type: tile
+            entity: sensor.claude_code_usage_spend_per_hour
+            name: Spend / hour</code></pre>
       </div>
     </section>
 
