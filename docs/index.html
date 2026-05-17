@@ -1,0 +1,1158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>ccusage-mqtt · Claude Code → Home Assistant</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Open-source MQTT publisher that brings Claude Code usage telemetry into Home Assistant. 15 sensors per account, mood classifier, Pro/Max + Enterprise support.">
+  <meta property="og:title" content="ccusage-mqtt">
+  <meta property="og:description" content="Claude Code usage → Home Assistant. 15 sensors, auto-discovered.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://george-vice.github.io/ccusage-mqtt/">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+/* ccusage-mqtt landing — CSS-only WordPress.com free build.
+   All selectors are scoped under .ccu-root so the active theme can't bleed in. */
+
+.ccu-root {
+  --bg: #07090a;
+  --bg-grid: #0a0d0e;
+  --surface: #0f1314;
+  --surface-2: #161b1c;
+  --surface-3: #1d2324;
+  --border: rgba(158, 255, 138, 0.10);
+  --border-2: rgba(255, 255, 255, 0.06);
+  --text: #e8efe5;
+  --text-2: #9ba59a;
+  --text-3: #4f5852;
+  --text-4: #2f3633;
+  --accent: #9eff8a;
+  --accent-dim: #6ec45e;
+  --accent-glow: rgba(158, 255, 138, 0.45);
+  --accent-fg: #07090a;
+  --warn: #ffb84a;
+  --hot: #ff7a59;
+  --info: #7dd3fc;
+  --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, 'Menlo', monospace;
+
+  position: relative;
+  font-family: var(--mono);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  margin: 0 calc(50% - 50vw);
+  width: 100vw;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+.ccu-root *, .ccu-root *::before, .ccu-root *::after { box-sizing: border-box; }
+.ccu-root ::selection { background: var(--accent); color: var(--accent-fg); }
+.ccu-root a { color: inherit; }
+
+/* page-wide grid + CRT overlays scoped to root */
+.ccu-root .ccu-bg-grid {
+  position: absolute; inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    linear-gradient(to right, var(--bg-grid) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--bg-grid) 1px, transparent 1px);
+  background-size: 48px 48px;
+  -webkit-mask-image: radial-gradient(ellipse at top, black 30%, transparent 75%);
+  mask-image: radial-gradient(ellipse at top, black 30%, transparent 75%);
+  opacity: 0.6;
+}
+.ccu-root .ccu-scanlines {
+  position: absolute; inset: 0; pointer-events: none; z-index: 50;
+  background: repeating-linear-gradient(0deg, rgba(0,0,0,0) 0, rgba(0,0,0,0.18) 1px, transparent 2px, transparent 3px);
+  mix-blend-mode: multiply; opacity: 0.32;
+}
+.ccu-root .ccu-vignette {
+  position: absolute; inset: 0; pointer-events: none; z-index: 49;
+  background: radial-gradient(ellipse 120% 90% at center, transparent 55%, rgba(0,0,0,0.6) 100%);
+  opacity: 0.45;
+}
+
+.ccu-root .ccu-wrap { position: relative; z-index: 1; }
+.ccu-root .container { max-width: 1240px; margin: 0 auto; padding: 0 32px; }
+@media (max-width: 720px) { .ccu-root .container { padding: 0 18px; } }
+
+/* keyframes */
+@keyframes ccu-blink { 50% { opacity: 0; } }
+@keyframes ccu-pulse { 50% { opacity: 0.4; } }
+@keyframes ccu-arrow { 50% { transform: translateX(4px); opacity: 0.7; } }
+
+/* ─────────────────────────── topbar ─────────────────────────── */
+.ccu-root .topbar {
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(7, 9, 10, 0.78);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  backdrop-filter: blur(14px) saturate(160%);
+  border-bottom: 1px solid var(--border-2);
+}
+.ccu-root .topbar-inner {
+  display: flex; align-items: center; justify-content: space-between;
+  max-width: 1240px; margin: 0 auto;
+  padding: 14px 32px;
+}
+@media (max-width: 720px) { .ccu-root .topbar-inner { padding: 12px 18px; } }
+.ccu-root .wordmark {
+  font-weight: 600; font-size: 13px;
+  letter-spacing: -0.01em;
+  display: inline-flex; align-items: center; gap: 4px;
+  text-decoration: none; color: var(--text);
+}
+.ccu-root .wordmark .prompt { color: var(--accent); }
+.ccu-root .cursor {
+  display: inline-block; width: 7px; height: 13px;
+  background: var(--accent); margin-left: 2px;
+  animation: ccu-blink 1.05s steps(2) infinite;
+}
+.ccu-root .nav { display: flex; gap: 26px; }
+.ccu-root .nav a {
+  color: var(--text-2); text-decoration: none;
+  font-size: 12px; letter-spacing: 0.04em;
+  transition: color .15s;
+}
+.ccu-root .nav a:hover { color: var(--accent); }
+@media (max-width: 720px) { .ccu-root .nav { display: none; } }
+
+.ccu-root .top-right { display: flex; align-items: center; gap: 12px; }
+.ccu-root .status-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px;
+  font-size: 10px; letter-spacing: 0.06em;
+  color: var(--text-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+.ccu-root .status-pill .dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent-glow);
+  animation: ccu-pulse 1.6s ease-in-out infinite;
+}
+@media (max-width: 720px) { .ccu-root .status-pill { display: none; } }
+
+.ccu-root .ghbtn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 7px 12px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  color: var(--text); text-decoration: none;
+  font-size: 12px; letter-spacing: 0.02em;
+  background: var(--surface);
+  transition: all .15s;
+}
+.ccu-root .ghbtn:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ─────────────────────────── hero ─────────────────────────── */
+.ccu-root .hero { padding: 64px 0 80px; position: relative; }
+@media (max-width: 720px) { .ccu-root .hero { padding: 36px 0 56px; } }
+.ccu-root .hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  gap: 60px;
+  align-items: center;
+}
+@media (max-width: 920px) { .ccu-root .hero-grid { grid-template-columns: 1fr; gap: 48px; } }
+
+.ccu-root .eyebrow {
+  display: inline-flex; align-items: center; gap: 10px;
+  color: var(--accent);
+  font-size: 11px; font-weight: 500; letter-spacing: 0.18em;
+  text-transform: uppercase;
+  margin-bottom: 24px;
+}
+.ccu-root .eyebrow::before { content: ''; width: 28px; height: 1px; background: var(--accent); }
+.ccu-root .eyebrow .idx { color: var(--text-3); font-weight: 400; letter-spacing: 0.14em; }
+
+.ccu-root h1.headline {
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: clamp(34px, 5.4vw, 60px);
+  line-height: 1.02;
+  letter-spacing: -0.028em;
+  margin: 0 0 28px;
+  text-wrap: balance;
+  color: var(--text);
+}
+.ccu-root h1.headline .accent { color: var(--accent); }
+.ccu-root h1.headline .arrow {
+  color: var(--accent); font-weight: 400;
+  display: inline-block;
+  margin: 0 0.15em;
+  animation: ccu-arrow 2.6s ease-in-out infinite;
+}
+
+.ccu-root .sub {
+  font-size: 15px; line-height: 1.65;
+  color: var(--text-2);
+  max-width: 540px;
+  margin: 0 0 32px;
+}
+.ccu-root .sub .hl { color: var(--text); }
+
+.ccu-root .install-snip {
+  display: flex; align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 32px;
+  max-width: 560px;
+  transition: border-color .15s;
+}
+.ccu-root .install-snip:hover { border-color: rgba(158, 255, 138, 0.32); }
+.ccu-root .install-snip .prompt {
+  padding: 12px 14px;
+  color: var(--accent);
+  font-size: 13px;
+  border-right: 1px solid var(--border-2);
+  flex-shrink: 0;
+}
+.ccu-root .install-snip .cmd {
+  padding: 12px 12px;
+  flex: 1;
+  color: var(--text);
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  user-select: all;
+}
+.ccu-root .install-snip .hint {
+  padding: 8px 14px;
+  color: var(--text-3);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  font-family: var(--mono);
+  border-left: 1px solid var(--border-2);
+  flex-shrink: 0;
+}
+
+.ccu-root .cta-row { display: flex; flex-wrap: wrap; gap: 12px; }
+.ccu-root .cta {
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 12px 18px;
+  font-family: var(--mono); font-size: 13px; font-weight: 500;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  border-radius: 8px;
+  transition: all .18s;
+  cursor: pointer;
+}
+.ccu-root .cta-primary {
+  background: var(--accent);
+  color: var(--accent-fg);
+  border: 1px solid var(--accent);
+}
+.ccu-root .cta-primary:hover {
+  box-shadow: 0 0 32px -4px var(--accent-glow);
+  transform: translateY(-1px);
+}
+.ccu-root .cta-primary svg { stroke: var(--accent-fg); fill: var(--accent-fg); }
+.ccu-root .cta-secondary {
+  color: var(--text);
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+.ccu-root .cta-secondary:hover { border-color: var(--accent); color: var(--accent); }
+
+.ccu-root .credits-line {
+  margin-top: 36px;
+  font-size: 11px;
+  color: var(--text-3);
+  letter-spacing: 0.02em;
+}
+.ccu-root .credits-line a { color: var(--text-2); text-decoration: none; border-bottom: 1px dotted var(--text-4); }
+.ccu-root .credits-line a:hover { color: var(--accent); border-color: var(--accent); }
+
+/* ─────────── mood cycler (hero right) ─────────── */
+.ccu-root .mood-stage {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 22px;
+  box-shadow: inset 0 1px 0 var(--border-2), 0 30px 60px -30px rgba(0, 0, 0, 0.6);
+}
+.ccu-root .mood-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 16px;
+  font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--text-3);
+}
+.ccu-root .mood-head .left { display: flex; gap: 6px; align-items: center; }
+.ccu-root .mood-head .dotr.live {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent-glow);
+  animation: ccu-pulse 1.6s ease-in-out infinite;
+}
+.ccu-root .mood-head .left .sep { color: var(--text-4); }
+.ccu-root .mood-head .right { color: var(--text-3); font-variant-numeric: tabular-nums; }
+
+.ccu-root .mood-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.ccu-root .mood-tile {
+  position: relative;
+  padding: 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-2);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.ccu-root .mood-tile .sprite-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #0a0c0d;
+  border: 1px solid var(--border-2);
+  margin-bottom: 12px;
+  image-rendering: pixelated;
+}
+.ccu-root .mood-tile .sprite-frame iframe {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  border: 0;
+  pointer-events: none;
+  image-rendering: pixelated;
+  filter: grayscale(0.6) brightness(0.7) contrast(0.95);
+  transition: filter .35s;
+}
+.ccu-root .mood-tile .sprite-scrim {
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, transparent 60%, rgba(0,0,0,0.4) 100%);
+  pointer-events: none;
+}
+.ccu-root .mood-tile .label {
+  font-size: 13px; font-weight: 600;
+  color: var(--text-2);
+  letter-spacing: -0.005em;
+  margin-bottom: 4px;
+  transition: color .35s;
+}
+.ccu-root .mood-tile .threshold {
+  font-size: 10px;
+  color: var(--text-3);
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+}
+/* the "active" overlay — sits on top of the tile, fades in during this tile's slice */
+.ccu-root .mood-tile .active-overlay {
+  position: absolute; inset: 0;
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  background: rgba(158, 255, 138, 0.10);
+  box-shadow: inset 0 0 0 1px var(--accent), 0 0 30px -10px var(--accent-glow);
+  opacity: 0;
+  pointer-events: none;
+}
+.ccu-root .mood-tile .now-badge {
+  position: absolute; top: 10px; right: 10px;
+  font-size: 9px; letter-spacing: 0.14em;
+  color: var(--accent);
+  background: rgba(0,0,0,0.5);
+  padding: 3px 6px;
+  border-radius: 4px;
+  -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* CSS-only mood cycle. 10.4s total = 4 tiles × 2.6s. Each tile is "active" during its 25% slice. */
+@keyframes ccu-active-1 { 0%, 24% { opacity: 1; } 25%, 100% { opacity: 0; } }
+@keyframes ccu-active-2 { 0%, 24% { opacity: 0; } 25%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
+@keyframes ccu-active-3 { 0%, 49% { opacity: 0; } 50%, 74% { opacity: 1; } 75%, 100% { opacity: 0; } }
+@keyframes ccu-active-4 { 0%, 74% { opacity: 0; } 75%, 100% { opacity: 1; } }
+@keyframes ccu-now-1 { 0%, 24% { opacity: 1; animation: ccu-blink 1.2s steps(2) infinite; } 25%, 100% { opacity: 0; } }
+@keyframes ccu-now-2 { 0%, 24% { opacity: 0; } 25%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
+@keyframes ccu-now-3 { 0%, 49% { opacity: 0; } 50%, 74% { opacity: 1; } 75%, 100% { opacity: 0; } }
+@keyframes ccu-now-4 { 0%, 74% { opacity: 0; } 75%, 100% { opacity: 1; } }
+@keyframes ccu-color-1 { 0%, 24% { filter: none; } 25%, 100% { filter: grayscale(0.6) brightness(0.7) contrast(0.95); } }
+@keyframes ccu-color-2 { 0%, 24% { filter: grayscale(0.6) brightness(0.7) contrast(0.95); } 25%, 49% { filter: none; } 50%, 100% { filter: grayscale(0.6) brightness(0.7) contrast(0.95); } }
+@keyframes ccu-color-3 { 0%, 49% { filter: grayscale(0.6) brightness(0.7) contrast(0.95); } 50%, 74% { filter: none; } 75%, 100% { filter: grayscale(0.6) brightness(0.7) contrast(0.95); } }
+@keyframes ccu-color-4 { 0%, 74% { filter: grayscale(0.6) brightness(0.7) contrast(0.95); } 75%, 100% { filter: none; } }
+@keyframes ccu-label-1 { 0%, 24% { color: var(--text); } 25%, 100% { color: var(--text-2); } }
+@keyframes ccu-label-2 { 0%, 24% { color: var(--text-2); } 25%, 49% { color: var(--text); } 50%, 100% { color: var(--text-2); } }
+@keyframes ccu-label-3 { 0%, 49% { color: var(--text-2); } 50%, 74% { color: var(--text); } 75%, 100% { color: var(--text-2); } }
+@keyframes ccu-label-4 { 0%, 74% { color: var(--text-2); } 75%, 100% { color: var(--text); } }
+
+.ccu-root .mood-tile:nth-child(1) .active-overlay { animation: ccu-active-1 10.4s infinite; }
+.ccu-root .mood-tile:nth-child(2) .active-overlay { animation: ccu-active-2 10.4s infinite; }
+.ccu-root .mood-tile:nth-child(3) .active-overlay { animation: ccu-active-3 10.4s infinite; }
+.ccu-root .mood-tile:nth-child(4) .active-overlay { animation: ccu-active-4 10.4s infinite; }
+.ccu-root .mood-tile:nth-child(1) .now-badge { animation: ccu-now-1 10.4s infinite; }
+.ccu-root .mood-tile:nth-child(2) .now-badge { animation: ccu-now-2 10.4s infinite; }
+.ccu-root .mood-tile:nth-child(3) .now-badge { animation: ccu-now-3 10.4s infinite; }
+.ccu-root .mood-tile:nth-child(4) .now-badge { animation: ccu-now-4 10.4s infinite; }
+.ccu-root .mood-tile:nth-child(1) .sprite-frame iframe { animation: ccu-color-1 10.4s infinite; }
+.ccu-root .mood-tile:nth-child(2) .sprite-frame iframe { animation: ccu-color-2 10.4s infinite; }
+.ccu-root .mood-tile:nth-child(3) .sprite-frame iframe { animation: ccu-color-3 10.4s infinite; }
+.ccu-root .mood-tile:nth-child(4) .sprite-frame iframe { animation: ccu-color-4 10.4s infinite; }
+.ccu-root .mood-tile:nth-child(1) .label { animation: ccu-label-1 10.4s infinite; }
+.ccu-root .mood-tile:nth-child(2) .label { animation: ccu-label-2 10.4s infinite; }
+.ccu-root .mood-tile:nth-child(3) .label { animation: ccu-label-3 10.4s infinite; }
+.ccu-root .mood-tile:nth-child(4) .label { animation: ccu-label-4 10.4s infinite; }
+
+.ccu-root .meter {
+  margin-top: 16px;
+  padding: 14px 14px 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-2);
+  border-radius: 10px;
+}
+.ccu-root .meter-row { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px; }
+.ccu-root .meter-label { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-3); }
+.ccu-root .meter-value { font-size: 13px; color: var(--text); font-variant-numeric: tabular-nums; }
+.ccu-root .meter-value .unit { color: var(--text-3); font-size: 10px; margin-left: 4px; }
+.ccu-root .meter-bar { height: 4px; background: var(--surface-3); border-radius: 2px; overflow: hidden; position: relative; }
+.ccu-root .meter-fill {
+  height: 100%;
+  background: linear-gradient(to right, var(--accent-dim), var(--accent));
+  box-shadow: 0 0 8px var(--accent-glow);
+}
+
+/* ─────────────────────────── sections ─────────────────────────── */
+.ccu-root .section { padding: 80px 0; }
+@media (max-width: 720px) { .ccu-root .section { padding: 56px 0; } }
+.ccu-root .section-head {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 24px; margin-bottom: 40px; flex-wrap: wrap;
+}
+.ccu-root .section-head .left { max-width: 640px; }
+.ccu-root h2.section-title {
+  font-family: var(--mono); font-weight: 600;
+  font-size: clamp(24px, 3vw, 36px);
+  letter-spacing: -0.02em; line-height: 1.1;
+  margin: 0; text-wrap: balance;
+  color: var(--text);
+}
+.ccu-root h2.section-title .accent { color: var(--accent); }
+.ccu-root .section-sub {
+  margin: 12px 0 0;
+  color: var(--text-2); font-size: 14px;
+  max-width: 560px; line-height: 1.6;
+}
+.ccu-root .section-meta {
+  font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--text-3);
+  display: flex; align-items: center; gap: 8px;
+  flex-shrink: 0;
+}
+.ccu-root .section-meta .bar { width: 24px; height: 1px; background: var(--text-4); }
+
+.ccu-root .ascii-rule {
+  color: var(--text-4); font-size: 12px;
+  text-align: center; letter-spacing: 0.4em;
+  margin: 0; padding: 32px 0;
+  user-select: none;
+}
+
+/* features grid */
+.ccu-root .features {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px;
+}
+@media (max-width: 1024px) { .ccu-root .features { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 560px) { .ccu-root .features { grid-template-columns: 1fr; } }
+
+.ccu-root .feat {
+  position: relative;
+  padding: 22px 22px 24px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  transition: all .2s;
+  overflow: hidden;
+}
+.ccu-root .feat::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: radial-gradient(circle at 80% -20%, var(--accent-glow), transparent 50%);
+  opacity: 0;
+  transition: opacity .25s;
+  pointer-events: none;
+}
+.ccu-root .feat:hover { border-color: rgba(158, 255, 138, 0.40); transform: translateY(-2px); }
+.ccu-root .feat:hover::before { opacity: 0.15; }
+.ccu-root .feat .num { font-size: 10px; color: var(--text-3); letter-spacing: 0.1em; margin-bottom: 18px; }
+.ccu-root .feat .glyph {
+  width: 34px; height: 34px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: inline-flex; align-items: center; justify-content: center;
+  margin-bottom: 18px;
+  color: var(--accent); font-size: 16px;
+}
+.ccu-root .feat h3 { margin: 0 0 8px; font-size: 14px; font-weight: 600; letter-spacing: -0.01em; color: var(--text); }
+.ccu-root .feat p { margin: 0; font-size: 12.5px; line-height: 1.55; color: var(--text-2); }
+.ccu-root .feat .micro {
+  margin-top: 14px; font-size: 10px; letter-spacing: 0.08em;
+  color: var(--text-3);
+  display: flex; align-items: center; gap: 6px;
+}
+.ccu-root .feat .micro .ck { color: var(--accent); }
+
+/* sensors */
+.ccu-root .sensors { display: grid; grid-template-columns: repeat(12, 1fr); gap: 14px; }
+.ccu-root .sensor-col {
+  grid-column: span 4;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  display: flex; flex-direction: column;
+}
+@media (max-width: 920px) { .ccu-root .sensor-col { grid-column: span 12; } }
+.ccu-root .sensor-col-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  margin-bottom: 6px;
+}
+.ccu-root .sensor-col-head h4 {
+  margin: 0; font-size: 12px; font-weight: 600;
+  color: var(--accent); letter-spacing: 0.04em;
+}
+.ccu-root .sensor-col-head .ct { font-size: 10px; color: var(--text-3); letter-spacing: 0.1em; font-variant-numeric: tabular-nums; }
+.ccu-root .sensor-col p.desc { margin: 0 0 18px; font-size: 11.5px; color: var(--text-3); line-height: 1.5; }
+.ccu-root .sensor-list { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+.ccu-root .sensor-row {
+  padding: 10px 0;
+  border-top: 1px dashed var(--border-2);
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px 12px;
+  align-items: baseline;
+  transition: padding-left .15s;
+  position: relative;
+}
+.ccu-root .sensor-row:first-child { border-top: 0; }
+.ccu-root .sensor-row:hover { padding-left: 4px; }
+.ccu-root .sensor-row:hover::before {
+  content: '›';
+  position: absolute; left: -12px;
+  color: var(--accent); font-size: 14px;
+}
+.ccu-root .sensor-row .name {
+  font-size: 12px; color: var(--text); font-weight: 500;
+  letter-spacing: -0.005em; word-break: break-all;
+}
+.ccu-root .sensor-row .unit {
+  font-size: 9.5px; color: var(--text-3);
+  padding: 2px 7px;
+  border: 1px solid var(--border-2);
+  border-radius: 999px;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+.ccu-root .sensor-row .unit.enum { color: var(--info); border-color: rgba(125, 211, 252, 0.25); }
+.ccu-root .sensor-row .unit.derived { color: var(--accent); border-color: rgba(158, 255, 138, 0.25); }
+.ccu-root .sensor-row .desc-mini {
+  grid-column: 1 / -1;
+  font-size: 11px; color: var(--text-3); line-height: 1.5;
+  margin-top: 2px;
+}
+.ccu-root .sensor-row .pro {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 9px; letter-spacing: 0.08em;
+  color: var(--warn);
+  padding: 1px 5px;
+  border: 1px solid rgba(255, 184, 74, 0.30);
+  border-radius: 4px;
+  vertical-align: 1px;
+}
+
+/* mood thresholds inline table */
+.ccu-root .thresh {
+  grid-column: span 12;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 22px;
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.5fr);
+  gap: 28px;
+  align-items: center;
+}
+@media (max-width: 760px) { .ccu-root .thresh { grid-template-columns: 1fr; gap: 20px; } }
+.ccu-root .thresh h4 { margin: 0 0 6px; font-size: 13px; font-weight: 600; color: var(--text); }
+.ccu-root .thresh p { margin: 0; font-size: 12px; color: var(--text-3); line-height: 1.6; }
+.ccu-root .thresh-tbl { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.ccu-root .thresh-cell {
+  padding: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-2);
+  border-radius: 8px;
+  text-align: left;
+}
+.ccu-root .thresh-cell .rate {
+  font-size: 11px; color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 6px; letter-spacing: 0.02em;
+}
+.ccu-root .thresh-cell .name { font-size: 13px; font-weight: 600; color: var(--text); }
+.ccu-root .thresh-cell.idle .name { color: var(--info); }
+.ccu-root .thresh-cell.normal .name { color: var(--accent); }
+.ccu-root .thresh-cell.active .name { color: var(--warn); }
+.ccu-root .thresh-cell.heavy .name { color: var(--hot); }
+
+/* install */
+.ccu-root .install-grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: 24px; }
+@media (max-width: 920px) { .ccu-root .install-grid { grid-template-columns: 1fr; } }
+.ccu-root .terminal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 30px 60px -30px rgba(0, 0, 0, 0.5);
+}
+.ccu-root .term-head {
+  padding: 10px 14px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border-2);
+  display: flex; align-items: center; gap: 10px;
+  font-size: 11px; color: var(--text-3); letter-spacing: 0.04em;
+}
+.ccu-root .term-head .lights { display: flex; gap: 6px; margin-right: 6px; }
+.ccu-root .term-head .lights span { width: 10px; height: 10px; border-radius: 50%; background: var(--text-4); }
+.ccu-root .term-head .lights span:nth-child(1) { background: #ff5f57; opacity: 0.7; }
+.ccu-root .term-head .lights span:nth-child(2) { background: #ffbd2e; opacity: 0.7; }
+.ccu-root .term-head .lights span:nth-child(3) { background: #28ca42; opacity: 0.7; }
+.ccu-root .term-head .title { flex: 1; text-align: center; font-size: 10.5px; }
+.ccu-root .term-head .meta { font-size: 10px; color: var(--text-3); }
+.ccu-root .term-body { padding: 18px 20px 22px; font-size: 12.5px; line-height: 1.75; font-variant-ligatures: none; }
+.ccu-root .term-body .line { display: block; white-space: pre-wrap; word-break: break-word; }
+.ccu-root .term-body .pr { color: var(--accent); margin-right: 8px; user-select: none; }
+.ccu-root .term-body .cm { color: var(--text); }
+.ccu-root .term-body .cm .key { color: var(--info); }
+.ccu-root .term-body .out { color: var(--text-3); font-style: italic; }
+.ccu-root .term-body .hl { color: var(--accent); }
+.ccu-root .term-body .comment { color: var(--text-3); }
+.ccu-root .term-body .term-cursor {
+  display: inline-block; width: 8px; height: 13px;
+  background: var(--accent); margin-left: 4px; vertical-align: -1px;
+  animation: ccu-blink 1s steps(2) infinite;
+}
+.ccu-root .install-side h3 { margin: 0 0 10px; font-size: 14px; font-weight: 600; letter-spacing: -0.01em; color: var(--text); }
+.ccu-root .install-side p { margin: 0 0 22px; font-size: 13px; line-height: 1.65; color: var(--text-2); }
+.ccu-root .install-side p .hl { color: var(--text); }
+.ccu-root .install-side ol {
+  margin: 0; padding: 0; list-style: none;
+  counter-reset: step;
+}
+.ccu-root .install-side ol li {
+  counter-increment: step;
+  padding: 14px 0 14px 38px;
+  position: relative;
+  font-size: 12.5px; line-height: 1.6;
+  color: var(--text-2);
+  border-top: 1px dashed var(--border-2);
+}
+.ccu-root .install-side ol li:first-child { border-top: 0; padding-top: 0; }
+.ccu-root .install-side ol li:first-child::before { top: 0; }
+.ccu-root .install-side ol li::before {
+  content: counter(step, decimal-leading-zero);
+  position: absolute;
+  left: 0; top: 14px;
+  font-size: 10px; color: var(--accent);
+  letter-spacing: 0.1em;
+  font-variant-numeric: tabular-nums;
+}
+.ccu-root .install-side ol li code {
+  font-family: var(--mono);
+  background: var(--surface);
+  border: 1px solid var(--border-2);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  color: var(--text);
+}
+.ccu-root .install-side ol li b { color: var(--text); font-weight: 600; }
+.ccu-root .req-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 18px; }
+.ccu-root .req {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 6px 10px;
+  font-size: 10.5px; letter-spacing: 0.04em;
+  color: var(--text-2);
+  background: var(--surface);
+  border: 1px solid var(--border-2);
+  border-radius: 6px;
+}
+.ccu-root .req .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); }
+
+/* dashboard */
+.ccu-root .dash-grid { display: grid; grid-template-columns: 1fr minmax(0, 360px); gap: 36px; align-items: center; }
+@media (max-width: 920px) { .ccu-root .dash-grid { grid-template-columns: 1fr; } }
+.ccu-root .dash-frame {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 12px;
+  box-shadow: 0 40px 80px -30px rgba(0, 0, 0, 0.7);
+  max-width: 360px;
+  margin: 0 auto;
+}
+.ccu-root .dash-frame .phone-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 8px 10px;
+  font-size: 10px; color: var(--text-3); letter-spacing: 0.1em;
+}
+.ccu-root .dash-frame .phone-head .ph-dot {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--accent); box-shadow: 0 0 8px var(--accent-glow);
+  display: inline-block; margin-right: 6px;
+}
+.ccu-root .dash-frame img {
+  display: block; width: 100%;
+  border-radius: 8px;
+  border: 1px solid var(--border-2);
+  background: var(--surface-2);
+}
+.ccu-root .dash-frame .glow {
+  position: absolute;
+  inset: -30px;
+  background: radial-gradient(circle at center, var(--accent-glow), transparent 60%);
+  filter: blur(40px);
+  opacity: 0.4;
+  z-index: -1;
+  pointer-events: none;
+}
+.ccu-root .keylist { margin: 0 0 24px; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 12px; }
+.ccu-root .keylist li {
+  font-size: 12px; color: var(--text-2);
+  display: grid;
+  grid-template-columns: 14px 1fr;
+  gap: 12px;
+  align-items: start;
+}
+.ccu-root .keylist li::before { content: '▸'; color: var(--accent); font-size: 10px; line-height: 1.5; }
+.ccu-root .keylist li b { color: var(--text); font-weight: 600; }
+
+/* footer */
+.ccu-root footer {
+  padding: 60px 0 40px;
+  border-top: 1px dashed var(--border-2);
+  margin-top: 40px;
+}
+.ccu-root .footer-grid {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr 1fr;
+  gap: 32px;
+  margin-bottom: 40px;
+}
+@media (max-width: 720px) { .ccu-root .footer-grid { grid-template-columns: 1fr 1fr; gap: 28px; } }
+.ccu-root .foot-col h5 {
+  font-size: 10px; font-weight: 600;
+  letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--text-3);
+  margin: 0 0 14px;
+}
+.ccu-root .foot-col a {
+  display: block;
+  color: var(--text-2); text-decoration: none;
+  font-size: 13px;
+  padding: 4px 0;
+  transition: color .15s;
+}
+.ccu-root .foot-col a:hover { color: var(--accent); }
+.ccu-root .foot-col p { margin: 0 0 8px; font-size: 12.5px; color: var(--text-2); line-height: 1.6; }
+.ccu-root .foot-col p a { display: inline; color: var(--text); border-bottom: 1px dotted var(--text-4); padding: 0; }
+.ccu-root .foot-bottom {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 16px;
+  padding-top: 28px;
+  border-top: 1px solid var(--border-2);
+  font-size: 11px; color: var(--text-3);
+  letter-spacing: 0.02em;
+}
+.ccu-root .foot-bottom .ascii { color: var(--accent); font-size: 11px; letter-spacing: 0.2em; opacity: 0.5; }
+.ccu-root .foot-bottom a { color: var(--text-2); text-decoration: none; border-bottom: 1px dotted var(--text-4); }
+</style>
+</head>
+<body>
+<div class="ccu-root">
+  <div class="ccu-bg-grid"></div>
+  <div class="ccu-scanlines"></div>
+  <div class="ccu-vignette"></div>
+  <div class="ccu-wrap">
+
+    <header class="topbar">
+      <div class="topbar-inner">
+        <a href="#top" class="wordmark">
+          <span class="prompt">&gt;</span>
+          <span>ccusage-mqtt</span>
+          <span class="cursor"></span>
+        </a>
+        <nav class="nav">
+          <a href="#features">features</a>
+          <a href="#sensors">sensors</a>
+          <a href="#install">install</a>
+          <a href="#dashboard">dashboard</a>
+        </nav>
+        <div class="top-right">
+          <span class="status-pill"><span class="dot"></span>v0.2 · MIT</span>
+          <a class="ghbtn" href="https://github.com/george-vice/ccusage-mqtt" target="_blank" rel="noreferrer">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.69-.01-1.36-2.22.48-2.69-1.07-2.69-1.07-.36-.92-.89-1.17-.89-1.17-.73-.5.05-.49.05-.49.81.06 1.23.83 1.23.83.72 1.23 1.88.87 2.34.67.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.01.08-2.11 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.91.08 2.11.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+            github
+          </a>
+        </div>
+      </div>
+    </header>
+
+    <section class="hero container" id="top">
+      <div class="hero-grid">
+        <div>
+          <div class="eyebrow">
+            <span class="idx">00</span>
+            <span>open-source mqtt publisher</span>
+          </div>
+          <h1 class="headline">
+            Claude Code usage,<br>
+            piped into <span class="accent">Home Assistant</span><span class="arrow"> →</span>
+          </h1>
+          <p class="sub">
+            <span class="hl">ccusage-mqtt</span> watches Claude Code's local session files and the Anthropic rate-limit headers, then publishes <span class="hl">15 sensors per account</span> to MQTT — auto-discovered into a single Home Assistant device. No API key. Pro/Max + Enterprise.
+          </p>
+          <div class="install-snip">
+            <span class="prompt">$</span>
+            <span class="cmd">pipx install ccusage-mqtt &amp;&amp; ./setup.sh</span>
+            <span class="hint">⌘C TO COPY</span>
+          </div>
+          <div class="cta-row">
+            <a class="cta cta-primary" href="https://github.com/george-vice/ccusage-mqtt" target="_blank" rel="noreferrer">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.69-.01-1.36-2.22.48-2.69-1.07-2.69-1.07-.36-.92-.89-1.17-.89-1.17-.73-.5.05-.49.05-.49.81.06 1.23.83 1.23.83.72 1.23 1.88.87 2.34.67.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.01.08-2.11 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.91.08 2.11.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+              view on github
+              <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M3 9L9 3M9 3H4M9 3V8"/></svg>
+            </a>
+            <a class="cta cta-secondary" href="#install">install guide</a>
+            <a class="cta cta-secondary" href="#sensors">sensor reference</a>
+          </div>
+          <div class="credits-line">
+            built by <a href="https://www.linkedin.com/in/georgejeng" target="_blank" rel="noreferrer">george jeng</a> · inspired by <a href="https://github.com/HermannBjorgvin/Clawdmeter" target="_blank" rel="noreferrer">clawdmeter</a> · mit licensed
+          </div>
+        </div>
+
+        <div class="mood-stage">
+          <div class="mood-head">
+            <span class="left">
+              <span class="dotr live"></span>
+              <span>live</span>
+              <span class="sep">·</span>
+              <span>sensor.claude_code_usage.mood</span>
+            </span>
+            <span class="right">demo</span>
+          </div>
+          <div class="mood-grid">
+            <div class="mood-tile">
+              <div class="sprite-frame">
+                <iframe src="https://claudepix.vercel.app/animations/idle_breathe.html?speed=1" title="idle_breathe" scrolling="no" frameborder="0"></iframe>
+                <div class="sprite-scrim"></div>
+              </div>
+              <div class="label">idle</div>
+              <div class="threshold">&lt; 0.10 %/min</div>
+              <div class="active-overlay"></div>
+              <div class="now-badge">◉ NOW</div>
+            </div>
+            <div class="mood-tile">
+              <div class="sprite-frame">
+                <iframe src="https://claudepix.vercel.app/animations/work_think.html?speed=1" title="work_think" scrolling="no" frameborder="0"></iframe>
+                <div class="sprite-scrim"></div>
+              </div>
+              <div class="label">normal</div>
+              <div class="threshold">&lt; 0.20 %/min</div>
+              <div class="active-overlay"></div>
+              <div class="now-badge">◉ NOW</div>
+            </div>
+            <div class="mood-tile">
+              <div class="sprite-frame">
+                <iframe src="https://claudepix.vercel.app/animations/work_coding.html?speed=1" title="work_coding" scrolling="no" frameborder="0"></iframe>
+                <div class="sprite-scrim"></div>
+              </div>
+              <div class="label">active</div>
+              <div class="threshold">&lt; 0.33 %/min</div>
+              <div class="active-overlay"></div>
+              <div class="now-badge">◉ NOW</div>
+            </div>
+            <div class="mood-tile">
+              <div class="sprite-frame">
+                <iframe src="https://claudepix.vercel.app/animations/dance_djmix.html?speed=1" title="dance_djmix" scrolling="no" frameborder="0"></iframe>
+                <div class="sprite-scrim"></div>
+              </div>
+              <div class="label">heavy</div>
+              <div class="threshold">≥ 0.33 %/min</div>
+              <div class="active-overlay"></div>
+              <div class="now-badge">◉ NOW</div>
+            </div>
+          </div>
+          <div class="meter">
+            <div class="meter-row">
+              <span class="meter-label">burn rate · 4min smoothed</span>
+              <span class="meter-value">0.264<span class="unit">%/min</span></span>
+            </div>
+            <div class="meter-bar"><div class="meter-fill" style="width: 53%"></div></div>
+            <div class="meter-row" style="margin-top: 12px; margin-bottom: 6px;">
+              <span class="meter-label">5h window</span>
+              <span class="meter-value">42.0<span class="unit">%</span><span class="unit" style="margin-left: 10px;">~220min to cap</span></span>
+            </div>
+            <div class="meter-bar"><div class="meter-fill" style="width: 42%"></div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="container"><div class="ascii-rule">─── ◆ ─── ◆ ─── ◆ ───</div></div>
+
+    <section class="section container" id="features">
+      <div class="section-head">
+        <div class="left">
+          <h2 class="section-title">Four things that make it <span class="accent">click.</span></h2>
+          <p class="section-sub">Designed to slot into a homelab in under five minutes and disappear into your dashboard from there.</p>
+        </div>
+        <div class="section-meta"><span class="bar"></span>01 / why</div>
+      </div>
+      <div class="features">
+        <div class="feat">
+          <div class="num">F.01</div>
+          <div class="glyph">◐</div>
+          <h3>Mood at a glance</h3>
+          <p>Burn-rate sensor classifies your session into idle / normal / active / heavy — same thresholds as Clawdmeter.</p>
+          <div class="micro"><span class="ck">✓</span> shared firmware constants</div>
+        </div>
+        <div class="feat">
+          <div class="num">F.02</div>
+          <div class="glyph">▤</div>
+          <h3>15 sensors per account</h3>
+          <p>5h + 7d utilization, burn rate, mood, time-to-limit, tokens, spend. Auto-discovered into one HA device.</p>
+          <div class="micro"><span class="ck">✓</span> mqtt discovery built in</div>
+        </div>
+        <div class="feat">
+          <div class="num">F.03</div>
+          <div class="glyph">◌</div>
+          <h3>No API key</h3>
+          <p>Reads the OAuth token Claude Code already stored at ~/.claude/.credentials.json. Zero extra setup.</p>
+          <div class="micro"><span class="ck">✓</span> oauth, not api keys</div>
+        </div>
+        <div class="feat">
+          <div class="num">F.04</div>
+          <div class="glyph">⌗</div>
+          <h3>Work + personal, host or docker</h3>
+          <p>Two accounts? Two instances — each shows as its own HA device. Runs equally well on bare metal or inside a Docker container alongside Claude Code.</p>
+          <div class="micro"><span class="ck">✓</span> host + docker · pro/max + enterprise</div>
+        </div>
+      </div>
+    </section>
+
+    <div class="container"><div class="ascii-rule">─── ◆ ─── ◆ ─── ◆ ───</div></div>
+
+    <section class="section container" id="sensors">
+      <div class="section-head">
+        <div class="left">
+          <h2 class="section-title">15 sensors, three sources, <span class="accent">one device.</span></h2>
+          <p class="section-sub">Entity IDs follow <code style="font-family: var(--mono); background: var(--surface); padding: 1px 6px; border-radius: 4px; font-size: 12px; border: 1px solid var(--border-2);">sensor.&lt;base_topic&gt;_&lt;sensor_id&gt;</code>. Set <code style="font-family: var(--mono); background: var(--surface); padding: 1px 6px; border-radius: 4px; font-size: 12px; border: 1px solid var(--border-2);">MQTT_BASE_TOPIC</code> in setup and you're done.</p>
+        </div>
+        <div class="section-meta"><span class="bar"></span>02 / sensors</div>
+      </div>
+      <div class="sensors">
+        <div class="sensor-col">
+          <div class="sensor-col-head"><h4>// anthropic api</h4><span class="ct">06 · 60s refresh</span></div>
+          <p class="desc">From the <code style="font-family: var(--mono); font-size: 11px;">anthropic-ratelimit-unified-*</code> response headers on every probe.</p>
+          <div class="sensor-list">
+            <div class="sensor-row"><div><span class="name">session_pct</span></div><span class="unit">%</span><div class="desc-mini">Current 5-hour rate-limit window utilization. On Enterprise, overage-allowance utilization instead.</div></div>
+            <div class="sensor-row"><div><span class="name">session_reset_minutes</span></div><span class="unit">min</span><div class="desc-mini">How long until the current window resets. Counts down in real time.</div></div>
+            <div class="sensor-row"><div><span class="name">session_status</span></div><span class="unit enum">enum</span><div class="desc-mini">allowed / limited / unknown — whether the current window is in good standing.</div></div>
+            <div class="sensor-row"><div><span class="name">weekly_pct</span><span class="pro">PRO/MAX</span></div><span class="unit">%</span><div class="desc-mini">7-day window utilization. Pro/Max only — null on Enterprise.</div></div>
+            <div class="sensor-row"><div><span class="name">weekly_reset_minutes</span><span class="pro">PRO/MAX</span></div><span class="unit">min</span><div class="desc-mini">Countdown to 7d window reset. Pro/Max only.</div></div>
+            <div class="sensor-row"><div><span class="name">weekly_status</span><span class="pro">PRO/MAX</span></div><span class="unit enum">enum</span><div class="desc-mini">7d window status. Pro/Max only.</div></div>
+          </div>
+        </div>
+
+        <div class="sensor-col">
+          <div class="sensor-col-head"><h4>// ccusage cli</h4><span class="ct">02 · 30s refresh</span></div>
+          <p class="desc">Local Claude Code session JSONLs parsed by <a href="https://github.com/ryoppippi/ccusage" target="_blank" rel="noreferrer" style="color: var(--text-2); text-decoration: none; border-bottom: 1px dotted var(--text-4);">ccusage</a>.</p>
+          <div class="sensor-list">
+            <div class="sensor-row"><div><span class="name">tokens_used</span></div><span class="unit">tokens</span><div class="desc-mini">Total tokens (input + output + cache create + cache read) consumed in the current 5h block.</div></div>
+            <div class="sensor-row"><div><span class="name">spend_so_far_usd</span></div><span class="unit">USD</span><div class="desc-mini">Estimated cost of the current 5h block from ccusage's per-model pricing table.</div></div>
+          </div>
+          <div style="margin-top: 18px; padding-top: 16px; border-top: 1px dashed var(--border-2);">
+            <div class="sensor-col-head"><h4>// metadata</h4><span class="ct">01</span></div>
+            <div class="sensor-list" style="margin-top: 8px;">
+              <div class="sensor-row"><div><span class="name">account</span></div><span class="unit">text</span><div class="desc-mini">Label from ACCOUNT_NAME env var. Attached as an attribute on every other sensor too.</div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="sensor-col">
+          <div class="sensor-col-head"><h4>// derived locally</h4><span class="ct">06 · computed</span></div>
+          <p class="desc">Computed from the inputs above on every publish cycle.</p>
+          <div class="sensor-list">
+            <div class="sensor-row"><div><span class="name">burn_rate_pct_per_min</span></div><span class="unit derived">%/min</span><div class="desc-mini">Rate of change of session_pct, smoothed over a 4-minute ring buffer.</div></div>
+            <div class="sensor-row"><div><span class="name">mood</span></div><span class="unit enum">enum</span><div class="desc-mini">idle / normal / active / heavy bucket borrowed verbatim from Clawdmeter.</div></div>
+            <div class="sensor-row"><div><span class="name">time_to_limit_minutes</span></div><span class="unit derived">min</span><div class="desc-mini">Projected minutes until session_pct reaches 100% at the current burn rate.</div></div>
+            <div class="sensor-row"><div><span class="name">block_elapsed_pct</span></div><span class="unit derived">%</span><div class="desc-mini">How far through the current 5h block you are, time-wise.</div></div>
+            <div class="sensor-row"><div><span class="name">tokens_per_hour</span></div><span class="unit derived">tokens/h</span><div class="desc-mini">Average token consumption rate so far in the current block.</div></div>
+            <div class="sensor-row"><div><span class="name">spend_per_hour_usd</span></div><span class="unit derived">USD/h</span><div class="desc-mini">Same as above but in dollars, rounded to cents.</div></div>
+          </div>
+        </div>
+
+        <div class="thresh">
+          <div>
+            <h4>Mood thresholds</h4>
+            <p>Borrowed verbatim from the Clawdmeter firmware so the two agree if you run both. Burn rate is %-of-window per minute.</p>
+          </div>
+          <div class="thresh-tbl">
+            <div class="thresh-cell idle"><div class="rate">&lt; 0.10</div><div class="name">idle</div></div>
+            <div class="thresh-cell normal"><div class="rate">&lt; 0.20</div><div class="name">normal</div></div>
+            <div class="thresh-cell active"><div class="rate">&lt; 0.33</div><div class="name">active</div></div>
+            <div class="thresh-cell heavy"><div class="rate">≥ 0.33</div><div class="name">heavy</div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="container"><div class="ascii-rule">─── ◆ ─── ◆ ─── ◆ ───</div></div>
+
+    <section class="section container" id="install">
+      <div class="section-head">
+        <div class="left">
+          <h2 class="section-title">Up in <span class="accent">five lines.</span></h2>
+          <p class="section-sub">Needs Python 3.12+ and Node.js — the publisher shells out to the ccusage CLI. Then it's just systemd.</p>
+        </div>
+        <div class="section-meta"><span class="bar"></span>03 / install</div>
+      </div>
+      <div class="install-grid">
+        <div class="terminal">
+          <div class="term-head">
+            <span class="lights"><span></span><span></span><span></span></span>
+            <span class="title">~/homelab — ccusage-mqtt — zsh</span>
+            <span class="meta">80x24</span>
+          </div>
+          <div class="term-body">
+            <span class="line"><span class="comment"># one-time, globally</span></span>
+            <span class="line"><span class="pr">$</span><span class="cm">npm install <span class="key">-g</span> ccusage</span></span>
+            <span class="line"><span class="out">    added 84 packages in 2.1s</span></span>
+            <span class="line">&nbsp;</span>
+            <span class="line"><span class="comment"># clone + install the publisher</span></span>
+            <span class="line"><span class="pr">$</span><span class="cm">git clone https://github.com/george-vice/ccusage-mqtt.git</span></span>
+            <span class="line"><span class="pr">$</span><span class="cm">cd ccusage-mqtt &amp;&amp; pipx install .</span></span>
+            <span class="line">&nbsp;</span>
+            <span class="line"><span class="comment"># interactive: broker, account label, mqtt creds</span></span>
+            <span class="line"><span class="pr">$</span><span class="cm">./setup.sh</span></span>
+            <span class="line"><span class="out">    broker → 192.168.1.20:1883</span></span>
+            <span class="line"><span class="out">    account → personal</span></span>
+            <span class="line"><span class="out">    base topic → claude_code_usage_personal</span></span>
+            <span class="line"><span class="out">    wrote config.env ✓</span></span>
+            <span class="line">&nbsp;</span>
+            <span class="line"><span class="pr">$</span><span class="cm">ccusage-mqtt</span></span>
+            <span class="line"><span class="hl">    [+] mqtt connected · 15 sensors discovered</span></span>
+            <span class="line"><span class="hl">    [+] publishing every 30s</span><span class="term-cursor"></span></span>
+          </div>
+        </div>
+
+        <div class="install-side">
+          <h3>Then run it on boot</h3>
+          <p>Drop into a <span class="hl">systemd user unit</span> — there's a template in the README. For Home Assistant, grab the ready-to-paste Lovelace YAML on the dashboard page.</p>
+          <ol>
+            <li><b>Add the unit.</b> Copy <code>ccusage-mqtt.service</code> from the README to <code>~/.config/systemd/user/</code>.</li>
+            <li><b>Enable + start.</b> <code>systemctl --user enable --now ccusage-mqtt</code>.</li>
+            <li><b>Paste the YAML.</b> Open HA → Raw config editor → drop in the snippet from the dashboard page.</li>
+            <li><b>Done.</b> Sensors auto-discover within seconds and the dashboard fills in.</li>
+          </ol>
+          <div class="req-row">
+            <span class="req"><span class="dot"></span>python 3.12+</span>
+            <span class="req"><span class="dot"></span>node.js</span>
+            <span class="req"><span class="dot"></span>mqtt broker</span>
+            <span class="req"><span class="dot"></span>home assistant</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="container"><div class="ascii-rule">─── ◆ ─── ◆ ─── ◆ ───</div></div>
+
+    <section class="section container" id="dashboard">
+      <div class="section-head">
+        <div class="left">
+          <h2 class="section-title">A drop-in Lovelace dashboard, <span class="accent">two columns wide.</span></h2>
+          <p class="section-sub">One column per account. Mood, current 5h / 7d gauges, burn rate, time-to-limit, tokens used + spend, plus a 24h burn-rate history graph.</p>
+        </div>
+        <div class="section-meta"><span class="bar"></span>04 / dashboard</div>
+      </div>
+      <div class="dash-grid">
+        <div>
+          <ul class="keylist">
+            <li><span><b>Two side-by-side columns</b> — one per Claude account, work and personal side by side.</span></li>
+            <li><span><b>Mood + gauges up top</b> — current state, 5h utilization, 7d utilization (Pro/Max), all visible at a glance.</span></li>
+            <li><span><b>Burn-rate timeline</b> — 24h history graph so you can see your hot hours.</span></li>
+            <li><span><b>Matches Clawdmeter's data shape</b> — if you also run the ESP32 desk dashboard, the two are interchangeable.</span></li>
+            <li><span><b>Bonus pixel-art Clawd</b> — swap glance row for picture-entity card keyed on the mood sensor.</span></li>
+          </ul>
+          <div class="cta-row">
+            <a class="cta cta-primary" href="https://ccusagemqtt.wordpress.com/dashboard/">
+              get the yaml
+              <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M3 9L9 3M9 3H4M9 3V8"/></svg>
+            </a>
+            <a class="cta cta-secondary" href="https://claudepix.vercel.app" target="_blank" rel="noreferrer">claudepix.vercel.app</a>
+          </div>
+        </div>
+        <div class="dash-frame">
+          <div class="glow"></div>
+          <div class="phone-head">
+            <span>● home assistant</span>
+            <span><span class="ph-dot"></span>live</span>
+          </div>
+          <img src="https://ccusagemqtt.wordpress.com/wp-content/uploads/2026/05/screen-capture-on-2026-05-17-at-20-11-41-1.gif" alt="ccusage-mqtt Lovelace dashboard" loading="lazy">
+        </div>
+      </div>
+    </section>
+
+    <footer class="container">
+      <div class="footer-grid">
+        <div class="foot-col">
+          <h5>// the project</h5>
+          <p>Open-source MQTT publisher that brings Claude Code usage telemetry into Home Assistant. Built by <a href="https://www.linkedin.com/in/georgejeng" target="_blank" rel="noreferrer">George Jeng</a>. Inspired by <a href="https://github.com/HermannBjorgvin/Clawdmeter" target="_blank" rel="noreferrer">Clawdmeter</a> — the ESP32 pixel-art desk dashboard for the same telemetry.</p>
+        </div>
+        <div class="foot-col">
+          <h5>repo</h5>
+          <a href="https://github.com/george-vice/ccusage-mqtt" target="_blank" rel="noreferrer">github ↗</a>
+          <a href="https://github.com/george-vice/ccusage-mqtt#install" target="_blank" rel="noreferrer">install ↗</a>
+          <a href="https://github.com/george-vice/ccusage-mqtt#readme" target="_blank" rel="noreferrer">readme ↗</a>
+        </div>
+        <div class="foot-col">
+          <h5>pages</h5>
+          <a href="#features">features</a>
+          <a href="#sensors">sensors</a>
+          <a href="#install">install</a>
+          <a href="#dashboard">dashboard</a>
+        </div>
+        <div class="foot-col">
+          <h5>related</h5>
+          <a href="https://github.com/ryoppippi/ccusage" target="_blank" rel="noreferrer">ccusage ↗</a>
+          <a href="https://github.com/HermannBjorgvin/Clawdmeter" target="_blank" rel="noreferrer">clawdmeter ↗</a>
+          <a href="https://claudepix.vercel.app" target="_blank" rel="noreferrer">claudepix ↗</a>
+        </div>
+      </div>
+      <div class="foot-bottom">
+        <div>mit licensed · <a href="https://github.com/george-vice/ccusage-mqtt" target="_blank" rel="noreferrer">github.com/george-vice/ccusage-mqtt</a></div>
+        <div class="ascii">─── ◆ ─── ◆ ───</div>
+        <div>© 2026 george jeng</div>
+      </div>
+    </footer>
+
+  </div>
+</div>
+</body>
+</html>
