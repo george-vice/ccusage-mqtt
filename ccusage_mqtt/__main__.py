@@ -55,6 +55,8 @@ class AppConfig:
     mood_tokens_normal_below: float
     mood_tokens_active_below: float
 
+    oauth_refresh_disabled: bool
+
     log_level: str
 
 
@@ -106,6 +108,7 @@ def load_config_from_env(env: Mapping[str, str]) -> AppConfig:
         mood_tokens_idle_below=float(env.get("MOOD_TOKENS_IDLE_BELOW", "500")),
         mood_tokens_normal_below=float(env.get("MOOD_TOKENS_NORMAL_BELOW", "2500")),
         mood_tokens_active_below=float(env.get("MOOD_TOKENS_ACTIVE_BELOW", "10000")),
+        oauth_refresh_disabled=env.get("OAUTH_REFRESH_DISABLED", "").strip().lower() in ("1", "true", "yes"),
         log_level=env.get("LOG_LEVEL", "INFO"),
     )
 
@@ -205,6 +208,19 @@ def main(argv: list[str] | None = None) -> int:
         try:
             return _do_probe()
         except AnthropicAuthError as auth_err:
+            if cfg.oauth_refresh_disabled:
+                # The credentials file is being managed by another process
+                # (typically Claude Code CLI on the same host). Refreshing
+                # from in here would race the file's owner and produce
+                # `invalid_grant` errors — refresh tokens rotate single-use.
+                # Let the loop mark headers stale; the owner will refresh
+                # the access token on its next API call.
+                log.warning(
+                    "anthropic 401 — OAUTH_REFRESH_DISABLED is set, skipping "
+                    "in-container refresh; headers will go stale until the "
+                    "credentials file owner refreshes the token"
+                )
+                raise
             # Token probably expired. Try refreshing via the stored
             # refreshToken, then retry the probe exactly once.
             log.warning(
