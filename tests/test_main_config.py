@@ -77,6 +77,23 @@ def test_load_config_empty_account_becomes_none():
     assert cfg.account_name is None
 
 
+def test_oauth_refresh_disabled_defaults_false():
+    cfg = load_config_from_env({"MQTT_HOST": "broker"})
+    assert cfg.oauth_refresh_disabled is False
+
+
+@pytest.mark.parametrize("val", ["1", "true", "TRUE", "True", "yes", "YES"])
+def test_oauth_refresh_disabled_truthy_values(val):
+    cfg = load_config_from_env({"MQTT_HOST": "broker", "OAUTH_REFRESH_DISABLED": val})
+    assert cfg.oauth_refresh_disabled is True
+
+
+@pytest.mark.parametrize("val", ["", "0", "false", "no", "off", "anything-else"])
+def test_oauth_refresh_disabled_falsy_values(val):
+    cfg = load_config_from_env({"MQTT_HOST": "broker", "OAUTH_REFRESH_DISABLED": val})
+    assert cfg.oauth_refresh_disabled is False
+
+
 def test_claude_paths_default_to_home_dir_when_docker_mount_absent(monkeypatch, tmp_path):
     """Terminal install: no /data/claude-projects on disk → use ~/.claude."""
     monkeypatch.setenv("HOME", str(tmp_path))
