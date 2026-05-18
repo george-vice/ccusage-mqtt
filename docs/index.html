@@ -12,6 +12,24 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+  <script>
+    !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="init capture register register_once register_for_session unregister unregister_for_session getFeatureFlag getFeatureFlagPayload isFeatureEnabled reloadFeatureFlags updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSessionId getSurveys getActiveMatchingSurveys renderSurvey canRenderSurvey getNextSurveyStep identify setPersonProperties group resetGroups setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags reset get_distinct_id getGroups get_session_id get_session_replay_url alias set_config startSessionRecording stopSessionRecording sessionRecordingStarted captureException loadToolbar get_property getSessionProperty createPersonProfile opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing clear_opt_in_out_capturing debug getPageViewId captureTraceFeedback captureTraceMetric".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
+    posthog.init('phc_uEAwbqrVETbmJbU6G6UvRa543NjBCWStLQW9h5mT6KWe', {
+      api_host: 'https://us.i.posthog.com',
+      defaults: '2025-05-24',
+      person_profiles: 'identified_only',
+    })
+    // Named CTA events — survive CSS refactors, drive funnels.
+    // Tag the call-site with data-ph="event_name"; the click bubbles here.
+    document.addEventListener('click', function (e) {
+      var el = e.target.closest && e.target.closest('[data-ph]');
+      if (!el || !window.posthog) return;
+      posthog.capture(el.dataset.ph, {
+        href: el.getAttribute('href') || null,
+        label: (el.innerText || '').trim().slice(0, 64)
+      });
+    }, true);
+  </script>
 <style>
 /* ccusage-mqtt landing — CSS-only WordPress.com free build.
    All selectors are scoped under .ccu-root so the active theme can't bleed in. */
@@ -850,7 +868,7 @@
         </nav>
         <div class="top-right">
           <span class="status-pill"><span class="dot"></span>v0.2 · MIT</span>
-          <a class="ghbtn" href="https://github.com/george-vice/ccusage-mqtt" target="_blank" rel="noreferrer">
+          <a class="ghbtn" data-ph="cta_github_nav" href="https://github.com/george-vice/ccusage-mqtt" target="_blank" rel="noreferrer">
             <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.69-.01-1.36-2.22.48-2.69-1.07-2.69-1.07-.36-.92-.89-1.17-.89-1.17-.73-.5.05-.49.05-.49.81.06 1.23.83 1.23.83.72 1.23 1.88.87 2.34.67.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.01.08-2.11 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.91.08 2.11.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
             github
           </a>
@@ -872,13 +890,13 @@
           <p class="sub">
             <span class="hl">ccusage-mqtt</span> watches Claude Code's local session files and the Anthropic rate-limit headers, then publishes <span class="hl">15 sensors</span> to MQTT — auto-discovered into a single Home Assistant device with a <span class="hl">pre-built Lovelace dashboard</span>. No API key. Pro/Max + Enterprise.
           </p>
-          <div class="install-snip">
+          <div class="install-snip" data-ph="cta_install_snippet">
             <span class="prompt">$</span>
             <span class="cmd">git clone https://github.com/george-vice/ccusage-mqtt &amp;&amp; cd ccusage-mqtt &amp;&amp; pipx install . &amp;&amp; ./setup.sh</span>
             <span class="hint">⌘C TO COPY</span>
           </div>
           <div class="cta-row">
-            <a class="cta cta-primary" href="https://github.com/george-vice/ccusage-mqtt" target="_blank" rel="noreferrer">
+            <a class="cta cta-primary" data-ph="cta_github_primary" href="https://github.com/george-vice/ccusage-mqtt" target="_blank" rel="noreferrer">
               <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.69-.01-1.36-2.22.48-2.69-1.07-2.69-1.07-.36-.92-.89-1.17-.89-1.17-.73-.5.05-.49.05-.49.81.06 1.23.83 1.23.83.72 1.23 1.88.87 2.34.67.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.01.08-2.11 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.91.08 2.11.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
               view on github
               <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M3 9L9 3M9 3H4M9 3V8"/></svg>
@@ -1281,7 +1299,7 @@ views:
         </div>
         <div class="foot-col">
           <h5>repo</h5>
-          <a href="https://github.com/george-vice/ccusage-mqtt" target="_blank" rel="noreferrer">github ↗</a>
+          <a data-ph="cta_github_footer" href="https://github.com/george-vice/ccusage-mqtt" target="_blank" rel="noreferrer">github ↗</a>
           <a href="https://github.com/george-vice/ccusage-mqtt#install" target="_blank" rel="noreferrer">install ↗</a>
           <a href="https://github.com/george-vice/ccusage-mqtt#readme" target="_blank" rel="noreferrer">readme ↗</a>
         </div>
