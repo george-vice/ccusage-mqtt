@@ -1,0 +1,53 @@
+blueprint:
+  name: Claude Code — alert on sustained "heavy" usage
+  description: >
+    Runs a configurable action (notification, light flash, TTS, etc.) when
+    the Claude Code Usage `mood` sensor stays in `heavy` for a configurable
+    duration. Useful for catching runaway burn-rate sessions before you hit
+    the 5h limit.
+
+
+    Requires the [ccusage-mqtt](https://github.com/george-vice/ccusage-mqtt)
+    publisher running and the `Claude Code Usage` device discovered via
+    MQTT auto-discovery (default entity: `sensor.claude_code_usage_mood`).
+  domain: automation
+  source_url: https://github.com/george-vice/ccusage-mqtt/blob/master/blueprints/automation/ccusage-mqtt/heavy-usage-alert.yaml
+  author: george-vice
+  input:
+    mood_sensor:
+      name: Mood sensor
+      description: The Claude Code Usage `mood` sensor to watch.
+      default: sensor.claude_code_usage_mood
+      selector:
+        entity:
+          domain: sensor
+    sustained_for:
+      name: Sustained for
+      description: >
+        How long mood must stay in `heavy` before the action fires. Five
+        minutes is a good default — it filters out brief spikes while still
+        catching real runaway sessions.
+      default:
+        minutes: 5
+      selector:
+        duration: {}
+    actions:
+      name: Actions
+      description: >
+        What to run when the threshold is hit. Add any notify service, TTS,
+        light flash, etc. — `trigger.to_state.state` is `heavy`.
+      selector:
+        action: {}
+
+mode: single
+max_exceeded: silent
+
+trigger:
+  - platform: state
+    entity_id: !input mood_sensor
+    to: heavy
+    for: !input sustained_for
+
+action:
+  - choose: []
+    default: !input actions
