@@ -4,9 +4,7 @@ This file is the first thing any Claude-family agent (Code, Cowork, etc.)
 should read when picking up this repo. It gives a self-contained snapshot of
 what the project does, how it's built, what's live, and what's still open.
 
-For deep detail, the full design spec is in
-`docs/superpowers/specs/2026-05-16-ccusage-mqtt-design.md` and the original
-implementation plan in `docs/superpowers/plans/2026-05-16-ccusage-mqtt.md`.
+For deep detail, the full design spec is in [`docs/design.md`](docs/design.md).
 
 ## What this is
 

@@ -267,9 +267,7 @@ ccusage-mqtt/
 │   ├── test_anthropic_parse.py
 │   └── test_ccusage_parse.py
 └── docs/
-    └── superpowers/
-        └── specs/
-            └── 2026-05-16-ccusage-mqtt-design.md  (this file)
+    └── design.md  (this file)
 ```
 
 ## 9. Container
