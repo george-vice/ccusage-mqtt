@@ -1053,7 +1053,7 @@
           <div style="margin-top: 18px; padding-top: 16px; border-top: 1px dashed var(--border-2);">
             <div class="sensor-col-head"><h4>// metadata</h4><span class="ct">01</span></div>
             <div class="sensor-list" style="margin-top: 8px;">
-              <div class="sensor-row"><div><span class="name">account</span></div><span class="unit">text</span><div class="desc-mini">Label from ACCOUNT_NAME env var. Attached as an attribute on every other sensor too.</div></div>
+              <div class="sensor-row"><div><span class="name">account</span></div><span class="unit">text</span><div class="desc-mini">Optional label, defaults to "default". Attached as an attribute on every other sensor too.</div></div>
             </div>
           </div>
         </div>
@@ -1112,12 +1112,10 @@
             <span class="line"><span class="pr">$</span><span class="cm">git clone https://github.com/george-vice/ccusage-mqtt.git</span></span>
             <span class="line"><span class="pr">$</span><span class="cm">cd ccusage-mqtt &amp;&amp; pipx install .</span></span>
             <span class="line">&nbsp;</span>
-            <span class="line"><span class="comment"># interactive: broker, account label, mqtt creds</span></span>
+            <span class="line"><span class="comment"># interactive: broker + mqtt creds</span></span>
             <span class="line"><span class="pr">$</span><span class="cm">./setup.sh</span></span>
             <span class="line"><span class="out">    broker → 192.168.1.20:1883</span></span>
-            <span class="line"><span class="out">    account → personal</span></span>
-            <span class="line"><span class="out">    base topic → claude_code_usage_personal</span></span>
-            <span class="line"><span class="out">    wrote config.env ✓</span></span>
+            <span class="line"><span class="out">    wrote .env ✓</span></span>
             <span class="line">&nbsp;</span>
             <span class="line"><span class="pr">$</span><span class="cm">ccusage-mqtt</span></span>
             <span class="line"><span class="hl">    [+] mqtt connected · 15 sensors discovered</span></span>
@@ -1190,7 +1188,7 @@ views:
       - type: grid
         cards:
           - type: heading
-            heading: Claude Code (Personal)
+            heading: Claude Code Usage
             heading_style: title
             icon: mdi:robot-outline
           - type: conditional
@@ -1243,9 +1241,6 @@ views:
               grid_options:
                 columns: 12
                 rows: 4
-          - type: tile
-            entity: sensor.claude_code_usage_account
-            name: Account
           - type: tile
             entity: sensor.claude_code_usage_session
             name: Session %
