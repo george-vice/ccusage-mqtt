@@ -161,6 +161,20 @@ the two instances can't collide on the broker. The HA device names you give
 keep them visually distinct, and every MQTT state payload carries
 `"account": "<name>"` so external subscribers can tell them apart too.
 
+## Blueprints
+
+Drop-in automations you can import into Home Assistant with one click.
+
+### Heavy-usage alert
+
+Fires a notification (or any action you pick) when `mood` stays in `heavy`
+for a configurable duration — catches runaway burn-rate sessions before
+you hit the 5h limit.
+
+[![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fgeorge-vice%2Fccusage-mqtt%2Fblob%2Fmaster%2Fblueprints%2Fautomation%2Fccusage-mqtt%2Fheavy-usage-alert.yaml)
+
+Source: [`blueprints/automation/ccusage-mqtt/heavy-usage-alert.yaml`](blueprints/automation/ccusage-mqtt/heavy-usage-alert.yaml).
+
 ## Configuration
 
 `./setup.sh` only asks for the four values you almost always need to set
