@@ -12,3 +12,8 @@ build/
 .vscode/
 .idea/
 tests/fixtures/*_real.json
+
+# Claude Code workflow scaffolding — internal-only, not for the public repo
+docs/superpowers/
+.claude/
+

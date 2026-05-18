@@ -5,14 +5,13 @@ auto-discovery. Mirrors the
 [Clawdmeter](https://github.com/HermannBjorgvin/Clawdmeter) ESP32 firmware's
 telemetry surface so the same `mood` / burn-rate thresholds apply.
 
-Once running, your Home Assistant gains a `Claude Code Usage` device with 15
-sensors — current 5h and 7d utilisation %, burn rate %/min, an enum `mood`
-sensor (idle / normal / active / heavy), time-to-limit, tokens & spend so
-far, hourly token and spend rates, reset countdowns for both windows, and
-an `Account` label sensor.
+Once running, your Home Assistant gains a `Claude Code Usage` device with
+sensors for current 5h and 7d utilisation %, burn rate %/min, an enum
+`mood` sensor (idle / normal / active / heavy), time-to-limit, tokens &
+spend so far, hourly token and spend rates, and reset countdowns for both
+windows.
 
-See `docs/superpowers/specs/2026-05-16-ccusage-mqtt-design.md` for the full
-design.
+See [`docs/design.md`](docs/design.md) for the full design.
 
 ## Prerequisites
 
@@ -122,45 +121,6 @@ device with 15 entities within ~60s under Settings → Devices & Services → MQ
 
 Re-run `./setup.sh` any time to reconfigure, or hand-edit `.env` directly.
 
-## Running multiple Claude accounts
-
-To track two Claude accounts (e.g. work + personal) from the same host, create
-a separate Claude Code config directory for each account, then run one
-`ccusage-mqtt` instance per directory. Each appears as its own device in
-Home Assistant.
-
-```bash
-# 1. Log in to each account into its own config dir on the host
-CLAUDE_CONFIG_DIR=~/.claude-work     claude login
-CLAUDE_CONFIG_DIR=~/.claude-personal claude login
-
-# 2. Clone the repo once per instance
-git clone https://github.com/george-vice/ccusage-mqtt.git ~/code/ccusage-mqtt-work
-git clone https://github.com/george-vice/ccusage-mqtt.git ~/code/ccusage-mqtt-personal
-
-# 3. Run setup.sh in each, answering with distinct values
-cd ~/code/ccusage-mqtt-work
-./setup.sh
-#   HA device name:               Claude Code (Work)
-#   Account label:                work
-#   Claude Code config dir:       /home/you/.claude-work
-
-cd ~/code/ccusage-mqtt-personal
-./setup.sh
-#   HA device name:               Claude Code (Personal)
-#   Account label:                personal
-#   Claude Code config dir:       /home/you/.claude-personal
-
-# 4. Run each one (source install: `ccusage-mqtt` from each dir;
-#    docker: `docker compose up -d --build` from each dir)
-```
-
-When `ACCOUNT_NAME` is set, `setup.sh` automatically suffixes
-`MQTT_BASE_TOPIC` and `MQTT_CLIENT_ID` with a slug of the account name so
-the two instances can't collide on the broker. The HA device names you give
-keep them visually distinct, and every MQTT state payload carries
-`"account": "<name>"` so external subscribers can tell them apart too.
-
 ## Blueprints
 
 Drop-in automations you can import into Home Assistant with one click.
@@ -233,9 +193,8 @@ the %/min burn rate exactly as the Clawdmeter firmware does.
   tries to auto-refresh the access token using the stored `refreshToken`;
   if you see `OAuth refresh failed: 400 invalid_grant`, the refresh
   token has also expired and a manual re-login is required:
-  `rm ~/.claude-work/.credentials.json && CLAUDE_CONFIG_DIR=~/.claude-work claude`
-  (substitute your actual config dir). The publisher self-heals within
-  the next 60s poll cycle.
+  `rm ~/.claude/.credentials.json && claude` (i.e. re-run `claude` to log
+  in again). The publisher self-heals within the next 60s poll cycle.
 - **`mood` stuck at `idle` past 4 minutes** — your actual burn rate is below
   0.10 %/min. This is normal — Claude Code isn't being used heavily right
   now. Lower `MOOD_IDLE_BELOW` if you want a more sensitive scale.
