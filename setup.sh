@@ -63,6 +63,33 @@ if [[ ! -f "${CLAUDE_CONFIG_HOST_PATH}/.credentials.json" ]]; then
     echo "  (Continuing anyway — the container will exit with code 3 until you do.)"
 fi
 
+# If this credentials dir is also used by Claude Code CLI on the host, both
+# processes will race to refresh Anthropic's rotating refresh token — the
+# loser gets `invalid_grant` and is stuck until a manual `claude` re-login.
+# `OAUTH_REFRESH_DISABLED=true` makes the publisher skip its own refresh and
+# trust the CLI to keep the file's access_token fresh.
+#
+# Default ON for the canonical `~/.claude` dir (CLI's default), OFF for any
+# other path (presumed dedicated).
+echo
+if [[ "$CLAUDE_CONFIG_HOST_PATH" == "${HOME}/.claude" ]]; then
+    yn_default="Y/n"
+    refresh_default=true
+else
+    yn_default="y/N"
+    refresh_default=
+fi
+echo "Will Claude Code CLI on this host also write to ${CLAUDE_CONFIG_HOST_PATH}?"
+echo "(If yes, the publisher skips its OAuth refresh to avoid racing the CLI"
+echo "for rotating refresh tokens. Pick 'n' for a dedicated config dir that"
+echo "no other process writes to.)"
+read -r -p "  shared with Claude Code CLI? [${yn_default}] " reply
+case "$reply" in
+    [Yy]*) OAUTH_REFRESH_DISABLED=true ;;
+    [Nn]*) OAUTH_REFRESH_DISABLED= ;;
+    *)     OAUTH_REFRESH_DISABLED=$refresh_default ;;
+esac
+
 # When ACCOUNT_NAME is non-default, auto-suffix the MQTT topic and client ID
 # so two instances on the same broker don't collide. User can still override
 # both directly in .env after this script writes it.
@@ -111,6 +138,7 @@ CLAUDE_CREDENTIALS_PATH=/data/claude-projects/.credentials.json
 CCUSAGE_PROJECTS_DIR=/data/claude-projects
 ANTHROPIC_API_BASE=https://api.anthropic.com
 PROBE_MODEL=claude-haiku-4-5-20251001
+OAUTH_REFRESH_DISABLED=${OAUTH_REFRESH_DISABLED}
 
 # --- Polling + tuning ------------------------------------------------------
 HEADER_POLL_SEC=60

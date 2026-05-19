@@ -138,7 +138,9 @@ which is serialized to retained MQTT payloads:
    poll, 30s ccusage poll, 240s ring buffer window (4 min warm-up before
    `burn_rate_pct_per_min` becomes non-null).
 
-9. **OAuth tokens self-refresh.** When the probe returns 401, `__main__.poll_headers` calls `refresh_claude_credentials()`, which POSTs to `https://platform.claude.com/v1/oauth/token` with the stored `refreshToken` and Claude Code's hardcoded client_id (`9d1c250a-e61b-44d9-88ed-5944d1962f5e`, reverse-engineered from the CLI binary). Writes rotated tokens back to the credentials file. If the refresh fails, the container does NOT crash-loop anymore — headers go stale (`status: "unknown"`) and we keep publishing token/$ sensors from ccusage. User fix: `CLAUDE_CONFIG_DIR=… claude` once.
+9. **OAuth tokens self-refresh.** When the probe returns 401, `__main__.poll_headers` calls `refresh_claude_credentials()`, which POSTs to `https://platform.claude.com/v1/oauth/token` with the stored `refreshToken` and Claude Code's hardcoded client_id (`9d1c250a-e61b-44d9-88ed-5944d1962f5e`, reverse-engineered from the CLI binary). Writes rotated tokens back to the credentials file. If the refresh fails, the container does NOT crash-loop — headers go stale (`status: "unknown"`) and we keep publishing token/$ sensors from ccusage. User fix: `CLAUDE_CONFIG_DIR=… claude` once.
+
+   **`OAUTH_REFRESH_DISABLED=true` opts out of in-container refresh** for hosts where Claude Code CLI shares the same credentials file. Both processes would otherwise race for the single-use rotating refresh token, leaving one with `invalid_grant` and forcing a manual re-login. With the flag set, the publisher just consumes whatever `accessToken` the CLI keeps in the file; on 401 we mark headers stale and wait for the CLI's next refresh. setup.sh prompts for this and defaults ON for the canonical `~/.claude` dir. Dedicated config dirs (e.g. a second `~/.claude-work`) leave it OFF.
 
 10. **Value precision is rounded at the publisher** to kill IEEE-754 noise
    (`0.07 × 100` → `7.000000000000001`) plus each sensor's HA discovery
