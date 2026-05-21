@@ -144,6 +144,7 @@ from `.env.example`. Notable optional knobs:
 | Var | Default | Purpose |
 |---|---|---|
 | `CLAUDE_CREDENTIALS_PATH` | `~/.claude/.credentials.json` (source) / `/data/claude-projects/.credentials.json` (Docker) | Where the publisher finds Claude Code's OAuth token. Resolves automatically based on environment; only set this if your Claude Code config lives somewhere unusual. |
+| `OAUTH_REFRESH_DISABLED` | _unset_ | Set to `true` if the credentials dir is also used by Claude Code CLI on the same host. See [Sharing the credentials dir with Claude Code CLI](#sharing-the-credentials-dir-with-claude-code-cli) below. |
 | `PROBE_MODEL` | `claude-haiku-4-5-20251001` | Model used for the ratelimit-probe API call. Cheapest current Anthropic model. |
 | `HEADER_POLL_SEC` | `60` | How often to refresh the 5h / 7d utilisation from Anthropic |
 | `CCUSAGE_POLL_SEC` | `30` | How often to refresh token / cost data from `ccusage` |
@@ -176,6 +177,25 @@ container does **not** crash-loop: it marks `session_status: "unknown"` in
 HA and keeps publishing token/$ sensors from `ccusage`, self-healing on the
 next poll once you re-login.
 
+### Sharing the credentials dir with Claude Code CLI
+
+If the publisher and Claude Code CLI both write to the same
+`~/.claude/.credentials.json` — the default single-account setup — they
+will race for the rotating refresh token. Anthropic issues refresh tokens
+single-use, so whichever process loses the race ends up with
+`invalid_grant: Refresh token not found or invalid` and is stuck until a
+manual `claude` re-login.
+
+Set `OAUTH_REFRESH_DISABLED=true` in `.env` on these hosts. The publisher
+will skip its own refresh entirely and just consume whatever `accessToken`
+the CLI has most recently written to the file; the CLI owns rotation. On
+a 401 the publisher marks `session_status: "unknown"` until the CLI's next
+use refreshes the file. Token/$ sensors from `ccusage` continue regardless.
+
+Leave the flag unset for dedicated config dirs that nothing else writes to
+(e.g. a second `~/.claude-work` for a separate account) — the publisher's
+self-refresh works fine there.
+
 Both Claude **Pro/Max** and **Enterprise** plans are supported. Enterprise
 returns a different ratelimit header schema (no 5h or 7d window — overage
 allowance instead); the parser handles both. Enterprise users get the
@@ -195,6 +215,10 @@ the %/min burn rate exactly as the Clawdmeter firmware does.
   token has also expired and a manual re-login is required:
   `rm ~/.claude/.credentials.json && claude` (i.e. re-run `claude` to log
   in again). The publisher self-heals within the next 60s poll cycle.
+- **`invalid_grant` returns roughly daily on a single-account host** — the
+  publisher and Claude Code CLI are racing for the rotating refresh token.
+  Set `OAUTH_REFRESH_DISABLED=true` in `.env` and let the CLI own token
+  rotation. See [Sharing the credentials dir with Claude Code CLI](#sharing-the-credentials-dir-with-claude-code-cli).
 - **`mood` stuck at `idle` past 4 minutes** — your actual burn rate is below
   0.10 %/min. This is normal — Claude Code isn't being used heavily right
   now. Lower `MOOD_IDLE_BELOW` if you want a more sensitive scale.
