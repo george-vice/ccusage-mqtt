@@ -6,7 +6,7 @@ services:
     # name. setup.sh writes CONTAINER_NAME from the account slug; bare clones
     # default to plain "ccusage-mqtt".
     container_name: ${CONTAINER_NAME:-ccusage-mqtt}
-    restart: unless-stopped
+    restart: always
     env_file: .env
     # Run as the host user so the read-only ~/.claude bind-mount (mode 0600)
     # is readable from inside the container. setup.sh records id -u / id -g
